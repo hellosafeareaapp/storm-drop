@@ -1,0 +1,149 @@
+{
+  "ar": {
+    "triangles": 5172,
+    "parts": 24,
+    "materials": [
+      "Accent",
+      "Gunmetal",
+      "Lens",
+      "Polymer"
+    ],
+    "length_m": 0.931,
+    "muzzle_gltf": [
+      0.0,
+      0.113,
+      0.647
+    ],
+    "bbox_gltf_min": [
+      -0.032,
+      -0.163,
+      -0.284
+    ],
+    "bbox_gltf_max": [
+      0.032,
+      0.199,
+      0.647
+    ],
+    "file": "models/guns/ar.glb",
+    "bytes": 587800,
+    "built_triangles": 5172
+  },
+  "shotgun": {
+    "triangles": 3844,
+    "parts": 16,
+    "materials": [
+      "Accent",
+      "Gunmetal",
+      "Polymer",
+      "Walnut"
+    ],
+    "length_m": 1.017,
+    "muzzle_gltf": [
+      0.0,
+      0.08,
+      0.67
+    ],
+    "bbox_gltf_min": [
+      -0.025,
+      -0.08,
+      -0.347
+    ],
+    "bbox_gltf_max": [
+      0.025,
+      0.102,
+      0.67
+    ],
+    "file": "models/guns/shotgun.glb",
+    "bytes": 475660,
+    "built_triangles": 3844
+  },
+  "smg": {
+    "triangles": 3340,
+    "parts": 19,
+    "materials": [
+      "Accent",
+      "Gunmetal",
+      "Lens",
+      "Polymer"
+    ],
+    "length_m": 0.605,
+    "muzzle_gltf": [
+      0.0,
+      0.105,
+      0.364
+    ],
+    "bbox_gltf_min": [
+      -0.027,
+      -0.131,
+      -0.241
+    ],
+    "bbox_gltf_max": [
+      0.038,
+      0.188,
+      0.364
+    ],
+    "file": "models/guns/smg.glb",
+    "bytes": 429608,
+    "built_triangles": 3340
+  },
+  "sniper": {
+    "triangles": 4542,
+    "parts": 18,
+    "materials": [
+      "Accent",
+      "Gunmetal",
+      "Lens",
+      "OliveDrab",
+      "Polymer"
+    ],
+    "length_m": 1.212,
+    "muzzle_gltf": [
+      0.0,
+      0.115,
+      0.738
+    ],
+    "bbox_gltf_min": [
+      -0.06,
+      -0.057,
+      -0.474
+    ],
+    "bbox_gltf_max": [
+      0.028,
+      0.218,
+      0.738
+    ],
+    "file": "models/guns/sniper.glb",
+    "bytes": 535044,
+    "built_triangles": 4542
+  },
+  "rocket": {
+    "triangles": 4710,
+    "parts": 19,
+    "materials": [
+      "Accent",
+      "Gunmetal",
+      "Lens",
+      "OliveDrab",
+      "Polymer"
+    ],
+    "length_m": 1.176,
+    "muzzle_gltf": [
+      0.0,
+      0.14,
+      0.582
+    ],
+    "bbox_gltf_min": [
+      -0.058,
+      -0.06,
+      -0.523
+    ],
+    "bbox_gltf_max": [
+      0.089,
+      0.212,
+      0.653
+    ],
+    "file": "models/guns/rocket.glb",
+    "bytes": 492044,
+    "built_triangles": 4710
+  }
+}

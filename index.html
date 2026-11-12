@@ -183,6 +183,7 @@
 <div id="pauseScreen" class="screen hidden">PAUSED<small>Click to resume</small></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
 <script>
 'use strict';
 /* =====================================================================
@@ -351,58 +352,75 @@ const AudioSys = {
 };
 
 /* =====================================================================
-   3. RENDERER, SCENE AND SHARED RESOURCES
+   3. RENDERER, SKY, LIGHTING AND SHARED RESOURCES
+   Realistic look: physically based sky, ACES tone mapping, sRGB output,
+   image-based lighting from the sky, and PBR (MeshStandardMaterial).
    ===================================================================== */
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.6;
 renderer.domElement.id = 'game';
 document.body.prepend(renderer.domElement);
+const MAX_ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
+const lin = c => new THREE.Color(c).convertSRGBToLinear();
 const scene = new THREE.Scene();
-const FOG_CLEAR = new THREE.Color(0xa9dcff), FOG_STORM = new THREE.Color(0x7a2fd0);
-const SKY_CLEAR = new THREE.Color(0xffffff), SKY_STORM = new THREE.Color(0x9b59ff);
-scene.background = new THREE.Color(0x7cc8ff);
-scene.fog = new THREE.Fog(FOG_CLEAR.getHex(), 90, 340);
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 900);
+const FOG_CLEAR = lin(0xbcd2e3), FOG_STORM = lin(0x5b2aa8);
+const FOG_NEAR = 60, FOG_FAR = 430;
+scene.fog = new THREE.Fog(FOG_CLEAR.getHex(), FOG_NEAR, FOG_FAR);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 1200);
 
-// Lights: hemisphere for soft fill, one directional sun with shadows that follows the action
-scene.add(new THREE.HemisphereLight(0xd6eeff, 0x5f8f3a, 0.85));
-const sun = new THREE.DirectionalLight(0xfff0d0, 0.95);
+// Physically based sky (Preetham model) — also baked into an environment map for reflections
+const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 40), THREE.MathUtils.degToRad(145));
+function makeSky(scale) {
+  const s = new THREE.Sky(); s.scale.setScalar(scale);
+  const u = s.material.uniforms;
+  u.turbidity.value = 2.2; u.rayleigh.value = 2.2; u.mieCoefficient.value = 0.003; u.mieDirectionalG.value = 0.85;
+  u.sunPosition.value.copy(SUN_DIR);
+  return s;
+}
+const sky = makeSky(1000); scene.add(sky); window._sky = sky;
+(function bakeEnvironment() {
+  const pm = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene();
+  envScene.add(makeSky(100));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 24), new THREE.MeshBasicMaterial({ color: lin(0x55663a) }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -8; envScene.add(ground); // greenish bounce light from below
+  scene.environment = pm.fromScene(envScene, 0.02).texture;
+  pm.dispose();
+})();
+
+// Lights: warm sun with soft shadows that follows the action, plus a gentle sky/ground fill
+scene.add(new THREE.HemisphereLight(lin(0xcfe2ff), lin(0x59633f), 0.55));
+const sun = new THREE.DirectionalLight(lin(0xfff0d8), 3.8);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 320 });
-sun.shadow.bias = -0.0006;
+Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 360 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
-const SUN_OFFSET = new THREE.Vector3(60, 120, 35);
+const SUN_OFFSET = SUN_DIR.clone().multiplyScalar(160);
 
 // Shared geometry and a material cache keep draw-call setup cheap
 const BOX = new THREE.BoxGeometry(1, 1, 1);
-const CYL = new THREE.CylinderGeometry(1, 1, 1, 10);
-const SPH = new THREE.SphereGeometry(1, 10, 8);
+const CYL = new THREE.CylinderGeometry(1, 1, 1, 14);
+const SPH = new THREE.SphereGeometry(1, 14, 10);
 const _mats = {};
+/* Plain PBR material from an sRGB hex colour (characters, props, loot) */
 function mat(color, extra) {
   const key = color + (extra ? JSON.stringify(extra) : '');
-  return _mats[key] || (_mats[key] = new THREE.MeshLambertMaterial(Object.assign({ color }, extra || {})));
+  if (_mats[key]) return _mats[key];
+  const m = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.62, metalness: 0.05 }, extra || {}));
+  m.color.convertSRGBToLinear(); m.emissive.convertSRGBToLinear();
+  return (_mats[key] = m);
 }
 function basic(color, opacity) {
   const key = 'b' + color + '_' + opacity;
-  return _mats[key] || (_mats[key] = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
+  return _mats[key] || (_mats[key] = new THREE.MeshBasicMaterial({ color: lin(color), transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
 }
-
-// Sky dome with a vertex-colour gradient
-(function makeSky() {
-  const g = new THREE.SphereGeometry(700, 24, 12), p = g.attributes.position, cols = [];
-  const top = new THREE.Color(0x2b7bff), hor = new THREE.Color(0xc3ecff), c = new THREE.Color();
-  for (let i = 0; i < p.count; i++) { c.copy(hor).lerp(top, clamp(p.getY(i) / 700 * 1.8, 0, 1)); cols.push(c.r, c.g, c.b); }
-  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  const sky = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
-  sky.renderOrder = -1; scene.add(sky); window._sky = sky;
-  const sunBall = new THREE.Mesh(new THREE.SphereGeometry(30, 16, 10), new THREE.MeshBasicMaterial({ color: 0xfff4c2, fog: false }));
-  sunBall.position.set(300, 420, 180); sky.add(sunBall);
-})();
 
 /* =====================================================================
    4. MAP — terrain, water, named areas, trees, rocks, chests
@@ -494,14 +512,14 @@ function buildTerrain() {
       if (d < a.r * 0.7) c.lerp(dirt, 0.55);
     }
     const j = 1 + (Math.random() - 0.5) * 0.06; c.r *= j; c.g *= j; c.b *= j;
-    cols.push(c.r, c.g, c.b);
+    c.convertSRGBToLinear(); cols.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
   geo.computeVertexNormals();
   const terrain = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000 }));
   terrain.receiveShadow = true; scene.add(terrain);
 
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshPhongMaterial({ color: 0x2fb6ea, transparent: true, opacity: 0.82, shininess: 90, specular: 0x99ddff }));
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshStandardMaterial({ color: lin(0x1f7fa6), transparent: true, opacity: 0.85, roughness: 0.08, metalness: 0.1, envMapIntensity: 1.2 }));
   water.rotation.x = -Math.PI / 2; water.position.y = 0; scene.add(water); window._water = water;
 }
 
@@ -1991,7 +2009,11 @@ for (let i = 1; i <= BOT_COUNT; i++) entities.push(new Entity('Bot_' + i, true, 
 
 const input = { keys: {}, fire: false, firePressed: false, aim: false, sprint: false };
 const canvas = renderer.domElement;
-function lockPointer() { if (canvas.requestPointerLock) canvas.requestPointerLock(); }
+function lockPointer() {
+  if (!canvas.requestPointerLock) return;
+  const r = canvas.requestPointerLock();
+  if (r && r.catch) r.catch(() => { game.noLock = true; game.paused = false; $('pauseScreen').classList.add('hidden'); });
+}
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (game.state === 'playing') { game.paused = !locked && !game.noLock; $('pauseScreen').classList.toggle('hidden', !game.paused); if (!locked) { input.fire = false; input.aim = false; } }
@@ -2149,9 +2171,7 @@ function updateGame(dt) {
   const out = player.state !== 'bus' && player.alive && inStorm(player);
   const dEdge = Math.abs(Math.hypot(camera.position.x - storm.cx, camera.position.z - storm.cz) - storm.r);
   scene.fog.color.lerp(out ? FOG_STORM : FOG_CLEAR, Math.min(1, dt * 3));
-  scene.fog.near = lerp(scene.fog.near, out ? 2 : 90, Math.min(1, dt * 3)); scene.fog.far = lerp(scene.fog.far, out ? 75 : 340, Math.min(1, dt * 3));
-  scene.background.copy(scene.fog.color);
-  window._sky.material.color.lerp(out ? SKY_STORM : SKY_CLEAR, Math.min(1, dt * 3));
+  scene.fog.near = lerp(scene.fog.near, out ? 2 : FOG_NEAR, Math.min(1, dt * 3)); scene.fog.far = lerp(scene.fog.far, out ? 75 : FOG_FAR, Math.min(1, dt * 3));
   ui.stormO.style.opacity = out ? 1 : 0;
   AudioSys.setHum(out ? 0.5 : clamp(1 - dEdge / 40, 0, 1) * 0.25);
   if (game.state === 'playing') updateHUD(dt, scoped);

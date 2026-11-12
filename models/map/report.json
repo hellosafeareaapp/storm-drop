@@ -1,0 +1,1079 @@
+[
+ {
+  "name": "house_a",
+  "tris": 7336,
+  "kb": 3948.5,
+  "dims": [
+   9.04,
+   9.04,
+   9.45
+  ],
+  "bounds": [
+   -4.52,
+   0.0,
+   -4.725,
+   4.52,
+   9.037,
+   4.725
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "walls+floor footprint x=[-4,4] z=[-4,4]",
+    "ok": true,
+    "info": "[-4.0, 0.0, -4.0, 4.0, 2.95, 4.0]"
+   },
+   {
+    "check": "floor bottom at y=0, wall top/ceiling slab at y=4.55",
+    "ok": true,
+    "info": "max y 4.850"
+   },
+   {
+    "check": "ceiling slab 8.6 x 8.6",
+    "ok": true,
+    "info": "[-4.3, 0.0, -4.3, 4.3, 4.85, 4.3]"
+   },
+   {
+    "check": "floor top at y=0.35",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "doorway open (ray passes to back wall)",
+    "ok": true,
+    "info": "[0.0, 1.35, -3.65]"
+   },
+   {
+    "check": "door width 1.8 (x=-0.86 open, x=-0.94 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door width 1.8 (x=+0.86 open, x=+0.94 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door height 2.6",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "side wall solid (window is visual only)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "house_b",
+  "tris": 4328,
+  "kb": 2961.0,
+  "dims": [
+   9.04,
+   10.19,
+   9.58
+  ],
+  "bounds": [
+   -4.52,
+   0.0,
+   -4.725,
+   4.52,
+   10.187,
+   4.853
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "walls+floor footprint x=[-4,4] z=[-4,4]",
+    "ok": true,
+    "info": "[-4.0, 0.0, -4.0, 4.0, 2.95, 4.0]"
+   },
+   {
+    "check": "floor bottom at y=0, wall top/ceiling slab at y=4.55",
+    "ok": true,
+    "info": "max y 4.850"
+   },
+   {
+    "check": "ceiling slab 8.6 x 8.6",
+    "ok": true,
+    "info": "[-4.3, 0.0, -4.3, 4.3, 4.85, 4.3]"
+   },
+   {
+    "check": "floor top at y=0.35",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "doorway open (ray passes to back wall)",
+    "ok": true,
+    "info": "[0.0, 1.35, -3.65]"
+   },
+   {
+    "check": "door width 1.8 (x=-0.86 open, x=-0.94 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door width 1.8 (x=+0.86 open, x=+0.94 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door height 2.6",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "side wall solid (window is visual only)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "house_c",
+  "tris": 4732,
+  "kb": 3853.9,
+  "dims": [
+   9.04,
+   9.46,
+   9.45
+  ],
+  "bounds": [
+   -4.52,
+   0.0,
+   -4.725,
+   4.52,
+   9.463,
+   4.725
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "walls+floor footprint x=[-4,4] z=[-4,4]",
+    "ok": true,
+    "info": "[-4.0, 0.0, -4.0, 4.0, 2.95, 4.0]"
+   },
+   {
+    "check": "floor bottom at y=0, wall top/ceiling slab at y=4.55",
+    "ok": true,
+    "info": "max y 4.850"
+   },
+   {
+    "check": "ceiling slab 8.6 x 8.6",
+    "ok": true,
+    "info": "[-4.3, 0.0, -4.3, 4.3, 4.85, 4.3]"
+   },
+   {
+    "check": "floor top at y=0.35",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "doorway open (ray passes to back wall)",
+    "ok": true,
+    "info": "[0.0, 1.35, -3.65]"
+   },
+   {
+    "check": "door width 1.8 (x=-0.86 open, x=-0.94 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door width 1.8 (x=+0.86 open, x=+0.94 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door height 2.6",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "side wall solid (window is visual only)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg,image/png"
+   }
+  ]
+ },
+ {
+  "name": "warehouse",
+  "tris": 4816,
+  "kb": 3667.1,
+  "dims": [
+   28.9,
+   11.03,
+   19.68
+  ],
+  "bounds": [
+   -14.45,
+   0.0,
+   -9.84,
+   14.45,
+   11.03,
+   9.84
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "walls+floor footprint x=[-14,14] z=[-9,9]",
+    "ok": true,
+    "info": "[-14.0, 0.0, -9.0, 14.0, 5.3, 9.0]"
+   },
+   {
+    "check": "floor bottom at y=0, wall top/ceiling slab at y=9.3",
+    "ok": true,
+    "info": "max y 9.700"
+   },
+   {
+    "check": "ceiling slab 28.8 x 18.8",
+    "ok": true,
+    "info": "[-14.4, 0.0, -9.4, 14.4, 9.7, 9.4]"
+   },
+   {
+    "check": "floor top at y=0.3",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "doorway open (ray passes to far side)",
+    "ok": true,
+    "info": "None"
+   },
+   {
+    "check": "door width 7.0 (x=-3.46 open, x=-3.54 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door width 7.0 (x=+3.46 open, x=+3.54 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door height 5.0",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "back opening open",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "barn",
+  "tris": 4492,
+  "kb": 3429.5,
+  "dims": [
+   13.46,
+   14.2,
+   11.87
+  ],
+  "bounds": [
+   -6.729,
+   0.0,
+   -5.57,
+   6.729,
+   14.202,
+   6.3
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "walls+floor footprint x=[-6,6] z=[-5,5]",
+    "ok": true,
+    "info": "[-6.0, 0.0, -5.0, 6.0, 4.1, 5.0]"
+   },
+   {
+    "check": "floor bottom at y=0, wall top/ceiling slab at y=6.3",
+    "ok": true,
+    "info": "max y 6.600"
+   },
+   {
+    "check": "ceiling slab 12.6 x 10.6",
+    "ok": true,
+    "info": "[-6.3, 0.0, -5.3, 6.3, 6.6, 5.3]"
+   },
+   {
+    "check": "floor top at y=0.3",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "doorway open (ray passes to back wall)",
+    "ok": true,
+    "info": "[0.0, 1.3, -4.6]"
+   },
+   {
+    "check": "door width 4.5 (x=-2.21 open, x=-2.29 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door width 4.5 (x=+2.21 open, x=+2.29 blocked)",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "door height 3.8",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "silo",
+  "tris": 5068,
+  "kb": 1618.8,
+  "dims": [
+   5.57,
+   13.42,
+   5.0
+  ],
+  "bounds": [
+   -2.655,
+   0.0,
+   -2.5,
+   2.92,
+   13.42,
+   2.5
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "radius 2.3 (front ray hits z=2.3)",
+    "ok": true,
+    "info": "2.3"
+   },
+   {
+    "check": "cylinder top at y=11",
+    "ok": true,
+    "info": "11.000"
+   },
+   {
+    "check": "domed top above 11",
+    "ok": true,
+    "info": "13.42"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "container",
+  "tris": 1324,
+  "kb": 684.6,
+  "dims": [
+   3.21,
+   3.2,
+   10.0
+  ],
+  "bounds": [
+   -1.605,
+   0.0,
+   -5.0,
+   1.605,
+   3.2,
+   5.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "3.2 x 3.2 x 10",
+    "ok": true,
+    "info": "[3.21, 3.2, 10.0]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "container_red",
+  "tris": 1324,
+  "kb": 585.1,
+  "dims": [
+   3.21,
+   3.2,
+   10.0
+  ],
+  "bounds": [
+   -1.605,
+   0.0,
+   -5.0,
+   1.605,
+   3.2,
+   5.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "3.2 x 3.2 x 10",
+    "ok": true,
+    "info": "[3.21, 3.2, 10.0]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "container_blue",
+  "tris": 1324,
+  "kb": 578.5,
+  "dims": [
+   3.21,
+   3.2,
+   10.0
+  ],
+  "bounds": [
+   -1.605,
+   0.0,
+   -5.0,
+   1.605,
+   3.2,
+   5.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "3.2 x 3.2 x 10",
+    "ok": true,
+    "info": "[3.21, 3.2, 10.0]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "container_green",
+  "tris": 1324,
+  "kb": 588.4,
+  "dims": [
+   3.21,
+   3.2,
+   10.0
+  ],
+  "bounds": [
+   -1.605,
+   0.0,
+   -5.0,
+   1.605,
+   3.2,
+   5.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "3.2 x 3.2 x 10",
+    "ok": true,
+    "info": "[3.21, 3.2, 10.0]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "container_orange",
+  "tris": 1324,
+  "kb": 655.6,
+  "dims": [
+   3.21,
+   3.2,
+   10.0
+  ],
+  "bounds": [
+   -1.605,
+   0.0,
+   -5.0,
+   1.605,
+   3.2,
+   5.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "3.2 x 3.2 x 10",
+    "ok": true,
+    "info": "[3.21, 3.2, 10.0]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "crate",
+  "tris": 760,
+  "kb": 538.3,
+  "dims": [
+   2.0,
+   2.0,
+   2.0
+  ],
+  "bounds": [
+   -1.0,
+   0.0,
+   -1.0,
+   1.0,
+   2.0,
+   1.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "2 x 2 x 2",
+    "ok": true,
+    "info": "[2.0, 2.0, 2.0]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "hay_bale",
+  "tris": 668,
+  "kb": 1197.8,
+  "dims": [
+   1.6,
+   1.82,
+   1.82
+  ],
+  "bounds": [
+   -0.8,
+   -0.012,
+   -0.912,
+   0.8,
+   1.812,
+   0.912
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "radius 0.9, length 1.6 along x",
+    "ok": true,
+    "info": "[1.6, 1.82, 1.82]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "tractor",
+  "tris": 2986,
+  "kb": 621.5,
+  "dims": [
+   2.37,
+   2.2,
+   3.47
+  ],
+  "bounds": [
+   -1.185,
+   0.0,
+   -1.61,
+   1.185,
+   2.2,
+   1.86
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "about 2.4 x 2.2 x 3.4",
+    "ok": true,
+    "info": "[2.37, 2.2, 3.47]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "well",
+  "tris": 919,
+  "kb": 1918.8,
+  "dims": [
+   3.24,
+   3.99,
+   2.6
+  ],
+  "bounds": [
+   -1.62,
+   0.0,
+   -1.3,
+   1.62,
+   3.994,
+   1.3
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "stone ring radius 1.3, 1.1 tall",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "lamp_post",
+  "tris": 528,
+  "kb": 74.3,
+  "dims": [
+   0.44,
+   4.4,
+   0.44
+  ],
+  "bounds": [
+   -0.222,
+   0.0,
+   -0.222,
+   0.222,
+   4.4,
+   0.222
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "4.4 tall",
+    "ok": true,
+    "info": "[0.44, 4.4, 0.44]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "fence",
+  "tris": 236,
+  "kb": 476.6,
+  "dims": [
+   4.0,
+   1.1,
+   0.17
+  ],
+  "bounds": [
+   -2.005,
+   0.0,
+   -0.065,
+   2.0,
+   1.1,
+   0.105
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "4 m long, 1.1 tall",
+    "ok": true,
+    "info": "[4.0, 1.1, 0.17]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "chest",
+  "tris": 1036,
+  "kb": 422.3,
+  "dims": [
+   1.42,
+   1.02,
+   0.97
+  ],
+  "bounds": [
+   -0.71,
+   0.0,
+   -0.482,
+   0.71,
+   1.018,
+   0.49
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "has separate `Lid` object",
+    "ok": true,
+    "info": ""
+   },
+   {
+    "check": "Lid pivot on back top edge (0, 0.7, -0.45)",
+    "ok": true,
+    "info": "(0.0, 0.7, -0.45)"
+   },
+   {
+    "check": "body 1.4 x 0.7 x 0.9",
+    "ok": true,
+    "info": "[-0.71, 0.0, -0.46, 0.71, 0.7, 0.465]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "tree_oak",
+  "tris": 2682,
+  "kb": 1802.3,
+  "dims": [
+   7.58,
+   7.75,
+   7.51
+  ],
+  "bounds": [
+   -3.682,
+   -0.149,
+   -3.67,
+   3.897,
+   7.6,
+   3.837
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "5-8 m tall, trunk at origin",
+    "ok": true,
+    "info": "[7.58, 7.75, 7.51]"
+   },
+   {
+    "check": "alpha-card material exported as alphaMode MASK",
+    "ok": true,
+    "info": "{'bark_oak': 'OPAQUE', 'leaves_oak': 'MASK'}"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg,image/png"
+   }
+  ]
+ },
+ {
+  "name": "tree_birch",
+  "tris": 2256,
+  "kb": 1206.1,
+  "dims": [
+   4.38,
+   7.94,
+   4.48
+  ],
+  "bounds": [
+   -2.234,
+   -0.141,
+   -2.347,
+   2.144,
+   7.8,
+   2.13
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "5-8 m tall, trunk at origin",
+    "ok": true,
+    "info": "[4.38, 7.94, 4.48]"
+   },
+   {
+    "check": "alpha-card material exported as alphaMode MASK",
+    "ok": true,
+    "info": "{'bark_birch': 'OPAQUE', 'leaves_birch': 'MASK'}"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg,image/png"
+   }
+  ]
+ },
+ {
+  "name": "tree_pine_a",
+  "tris": 3850,
+  "kb": 1868.1,
+  "dims": [
+   6.28,
+   7.75,
+   6.19
+  ],
+  "bounds": [
+   -3.154,
+   -0.153,
+   -3.186,
+   3.121,
+   7.6,
+   3.0
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "5-8 m tall, trunk at origin",
+    "ok": true,
+    "info": "[6.28, 7.75, 6.19]"
+   },
+   {
+    "check": "alpha-card material exported as alphaMode MASK",
+    "ok": true,
+    "info": "{'bark_pine': 'OPAQUE', 'needles': 'MASK'}"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg,image/png"
+   }
+  ]
+ },
+ {
+  "name": "tree_pine_b",
+  "tris": 2254,
+  "kb": 1804.1,
+  "dims": [
+   4.98,
+   7.94,
+   5.03
+  ],
+  "bounds": [
+   -2.532,
+   -0.144,
+   -2.496,
+   2.451,
+   7.8,
+   2.529
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "5-8 m tall, trunk at origin",
+    "ok": true,
+    "info": "[4.98, 7.94, 5.03]"
+   },
+   {
+    "check": "alpha-card material exported as alphaMode MASK",
+    "ok": true,
+    "info": "{'bark_pine': 'OPAQUE', 'needles_b': 'MASK'}"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg,image/png"
+   }
+  ]
+ },
+ {
+  "name": "rock_a",
+  "tris": 2300,
+  "kb": 621.7,
+  "dims": [
+   1.79,
+   1.5,
+   1.77
+  ],
+  "bounds": [
+   -1.016,
+   -0.22,
+   -1.08,
+   0.776,
+   1.278,
+   0.685
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "about 2 m boulder",
+    "ok": true,
+    "info": "[1.79, 1.5, 1.77]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "rock_b",
+  "tris": 2300,
+  "kb": 636.9,
+  "dims": [
+   1.81,
+   1.22,
+   1.91
+  ],
+  "bounds": [
+   -0.93,
+   -0.219,
+   -0.936,
+   0.877,
+   1.003,
+   0.976
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "about 2 m boulder",
+    "ok": true,
+    "info": "[1.81, 1.22, 1.91]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "rock_c",
+  "tris": 2300,
+  "kb": 751.5,
+  "dims": [
+   2.38,
+   1.44,
+   1.68
+  ],
+  "bounds": [
+   -1.127,
+   -0.222,
+   -0.92,
+   1.249,
+   1.214,
+   0.759
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "about 2 m boulder",
+    "ok": true,
+    "info": "[2.38, 1.44, 1.68]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "rock_d",
+  "tris": 2300,
+  "kb": 659.4,
+  "dims": [
+   2.37,
+   1.44,
+   1.92
+  ],
+  "bounds": [
+   -1.142,
+   -0.219,
+   -1.082,
+   1.226,
+   1.223,
+   0.837
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "about 2 m boulder",
+    "ok": true,
+    "info": "[2.37, 1.44, 1.92]"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg"
+   }
+  ]
+ },
+ {
+  "name": "grass_clump",
+  "tris": 8,
+  "kb": 109.0,
+  "dims": [
+   0.62,
+   0.55,
+   0.62
+  ],
+  "bounds": [
+   -0.27,
+   -0.02,
+   -0.325,
+   0.346,
+   0.53,
+   0.295
+  ],
+  "ok": true,
+  "checks": [
+   {
+    "check": "about 0.6 m clump",
+    "ok": true,
+    "info": "[0.62, 0.55, 0.62]"
+   },
+   {
+    "check": "alpha-card material exported as alphaMode MASK",
+    "ok": true,
+    "info": "{'grass_card': 'MASK'}"
+   },
+   {
+    "check": "no Draco compression, textures embedded",
+    "ok": true,
+    "info": "image/jpeg,image/png"
+   }
+  ]
+ }
+]

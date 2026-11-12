@@ -685,7 +685,16 @@ MATEXTRA = {
 DOUBLE_SIDED = {'leaves_oak', 'leaves_birch', 'needles', 'needles_b', 'grass_card'}
 _TEXCACHE = {}
 
-def _save_img(name, arr, alpha=None, noncolor=False):
+# Normal and ORM maps are high-frequency noise that JPEG compresses badly; they are
+# stored at half the base-colour resolution so each .glb stays under ~2 MB.
+AUX_DOWNSCALE = 2
+
+def _save_img(name, arr, alpha=None, noncolor=False, downscale=1, quality=85):
+    if downscale > 1 and arr.shape[0] >= 256:
+        n0 = arr.shape[0]; k = downscale
+        arr = arr.reshape(n0 // k, k, n0 // k, k, -1).mean(axis=(1, 3))
+        if alpha is not None:
+            alpha = alpha.reshape(n0 // k, k, n0 // k, k).mean(axis=(1, 3))
     n = arr.shape[0]
     ext = 'png' if alpha is not None else 'jpg'
     img = bpy.data.images.new(name, n, n, alpha=alpha is not None)
@@ -702,7 +711,7 @@ def _save_img(name, arr, alpha=None, noncolor=False):
     if alpha is not None:
         img.save()
     else:
-        img.save(quality=88)
+        img.save(quality=quality)
     img.source = 'FILE'
     img.reload()
     if noncolor:
@@ -718,9 +727,15 @@ def textures(name):
     imgs = {}
     imgs['base'] = _save_img(name + '_basecolor', t['base'], t['alpha'])
     orm = np.stack([np.ones_like(t['rough']), t['rough'], t['metal']], -1)
-    imgs['orm'] = _save_img(name + '_orm', orm, noncolor=True)
+    imgs['orm'] = _save_img(name + '_orm', orm, noncolor=True, downscale=AUX_DOWNSCALE, quality=80)
     if t['height'] is not None:
-        imgs['normal'] = _save_img(name + '_normal', height_to_normal(t['height'], t['nstr'] * size / 1024), noncolor=True)
+        nrm = height_to_normal(t['height'], t['nstr'] * size / 1024)
+        if AUX_DOWNSCALE > 1 and size >= 256:
+            k = AUX_DOWNSCALE
+            nrm = nrm.reshape(size // k, k, size // k, k, 3).mean(axis=(1, 3))
+            v = nrm * 2 - 1; v /= np.linalg.norm(v, axis=-1, keepdims=True) + 1e-9
+            nrm = v * 0.5 + 0.5
+        imgs['normal'] = _save_img(name + '_normal', nrm, noncolor=True, quality=80)
     _TEXCACHE[name] = imgs
     log('texture %-16s %4dpx %.1fs' % (name, size, time.time() - t0))
     return imgs
@@ -2491,6 +2506,12 @@ def main():
             report.append(verify_asset(n))
         with open(os.path.join(OUT, 'report.json'), 'w') as f:
             json.dump(report, f, indent=1)
+        stats = {r['name'] + '.glb': dict(triangles=r['tris'], bytes=os.path.getsize(os.path.join(OUT, r['name'] + '.glb')),
+                                          size_kb=r['kb'], dimensions_m=dict(x=r['dims'][0], y=r['dims'][1], z=r['dims'][2]),
+                                          bbox_min=r['bounds'][:3], bbox_max=r['bounds'][3:], checks_passed=r['ok'])
+                 for r in report}
+        with open(os.path.join(OUT, 'stats.json'), 'w') as f:
+            json.dump(stats, f, indent=1)
         bad = [r['name'] for r in report if not r['ok']]
         log('verification: %d assets, %d failed %s' % (len(report), len(bad), bad))
     if not NO_RENDER:

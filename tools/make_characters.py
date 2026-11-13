@@ -2513,7 +2513,7 @@ def render_character(cid):
         set_frames([rig])
         ctr = Vector((0, 0, 0.93))
         studio(sc, ctr)
-        camera(sc, ctr + Vector((0.0, -1.0, 0.06)).normalized() * 4.3, ctr + Vector((0, 0, 0.02)), 50)
+        camera(sc, ctr + Vector((0.0, -1.0, 0.06)).normalized() * 5.1, ctr + Vector((0, 0, -0.01)), 50)
         sc.render.filepath = os.path.join(RENDER_DIR, "char_%s_%s.png" % (cid, view))
         t = time.time()
         bpy.ops.render.render(write_still=True)

@@ -515,7 +515,7 @@ def head_sdf(P):
     sockets = U([sphere((sx * EYE_X, EYE_Y - 0.016, EYE_Z + 0.002), 0.017) for sx in (1, -1)])
     head = head.ssub(sockets, 0.008)
     eyes = U([sphere((sx * EYE_X, EYE_Y, EYE_Z), EYE_R) for sx in (1, -1)])
-    lids = U([ellipsoid((sx * EYE_X, EYE_Y - 0.0015, EYE_Z + 0.0072), (0.0155, 0.0128, 0.0064)) for sx in (1, -1)] +
+    lids = U([ellipsoid((sx * EYE_X, EYE_Y - 0.0015, EYE_Z + 0.0062), (0.0155, 0.0128, 0.0064)) for sx in (1, -1)] +
              [ellipsoid((sx * EYE_X, EYE_Y - 0.001, EYE_Z - 0.0105), (0.0145, 0.011, 0.0035)) for sx in (1, -1)])
     return head.su(lids, 0.004) | eyes
 
@@ -715,7 +715,7 @@ def designs():
     # ------------------------------------------------------------------ C
     D["c"] = dict(
         name="Bulwark", female=0, bulk=1.0, muscle=0.55, jaw=1.0, nose=0.9, lips=0.5,
-        skin=col("#9c6b4a"), hair=col("#1d1612"), eye=col("#3a2618"), brows=1.0, beard=2,
+        skin=col("#9c6b4a"), hair=col("#3b2a1f"), eye=col("#3a2618"), brows=1.0, beard=2,
     )
     # ------------------------------------------------------------------ D
     D["d"] = dict(
@@ -764,7 +764,7 @@ def build_pieces(cid, P):
         pcs.append(Piece("chinstrap", "Leather", strap, col("#2a2620"), PAT_WEBBING, tris=150, step=0.003, rule="head"))
         beard = head.grow(0.011) & F(lambda p: p[:, 2] - (1.655 + np.maximum(0, p[:, 1] + 0.04) * 0.6)) & \
             keep((0, 0.04, 0), (0, -1, 0)) & keep((0, 0, 1.565), (0, 0, 1))
-        beard = beard - ellipsoid((0, -0.096, 1.617), (0.020, 0.030, 0.0075))
+        beard = beard
         hair = head.grow(0.008) & scalp_cut(1.76, 1.64, 1.71)
         pcs.append(Piece("hair", "Hair", beard | hair, hairc, tris=700, step=0.0028, rule="head"))
         for s in ("L", "R"):
@@ -817,16 +817,15 @@ def build_pieces(cid, P):
         jk = jk.su(pk, 0.008)
         pcs.append(Piece("jacket", "Fabric", jk, col("#7a5a36"), PAT_CANVAS, tris=2200, step=0.006, rule="upper"))
         pcs.append(Piece("pants", "Fabric", build_pants(body, 0.028), col("#4e5038"), PAT_RIP, tris=1400, step=0.006, rule="lower"))
-        pack, straps, bed = backpack_sdf(body, 1.25, bedroll=True, over=body.torso.grow(0.034))
+        pack, straps, bed = backpack_sdf(body, 1.25, bedroll=True, over=body.upper().grow(0.052))
         pcs.append(Piece("pack", "Gear", pack | straps, col("#3e4a3a"), PAT_RIP, tris=1100, step=0.007, rule="chest"))
         pcs.append(Piece("bedroll", "Team", bed, (0.85, 0.85, 0.85), PAT_KNIT, tris=300, step=0.006, rule="chest"))
         beanie = (ellipsoid((0, 0.004, 1.715), (0.086, 0.106, 0.103)) & keep((0, 0, 1.705), (0, 0.2, 1))) | \
             (ellipsoid((0, 0.004, 1.712), (0.091, 0.111, 0.04)) & keep((0, 0, 1.70), (0, 0.2, 1)))
         pcs.append(Piece("beanie", "Team", beanie, (0.85, 0.85, 0.85), PAT_KNIT, tris=700, step=0.004, rule="head"))
-        beard = head.grow(0.013) & F(lambda p: p[:, 2] - (1.650 + np.maximum(0, p[:, 1] + 0.05) * 0.6)) & \
+        beard = head.grow(0.012) & F(lambda p: p[:, 2] - (1.632 + np.maximum(0, p[:, 1] + 0.05) * 0.9)) & \
             keep((0, 0.045, 0), (0, -1, 0)) & keep((0, 0, 1.53), (0, 0, 1))
         beard = beard.su(ellipsoid((0, -0.082, 1.572), (0.036, 0.026, 0.028)), 0.02)
-        beard = beard - ellipsoid((0, -0.100, 1.616), (0.019, 0.030, 0.010))
         mous = ellipsoid((0, -0.101, 1.630), (0.025, 0.009, 0.0055))
         hair = head.grow(0.008) & scalp_cut(1.74, 1.64, 1.70) & keep((0, 0, 1.712), (0, 0.2, -1))
         pcs.append(Piece("hair", "Hair", U([beard, mous], 0.005) | hair, hairc, tris=800, step=0.003, rule="head"))
@@ -2088,9 +2087,9 @@ def recipe_skin(nb, P):
     # eyes: sclera, iris, pupil, lash line
     eye = nb.ellmask((EYE_X, EYE_Y, EYE_Z), (EYE_R + 0.0004,) * 3, 0.04)
     irisd = nb.vmath("LENGTH", nb.vmath("SUBTRACT", _abs_x(nb), (EYE_X, EYE_Y - EYE_R, EYE_Z)))
-    iris = nb.math("SUBTRACT", 1.0, nb.smooth(0.0058, 0.0066, irisd))
+    iris = nb.math("SUBTRACT", 1.0, nb.smooth(0.0066, 0.0076, irisd))
     pupil = nb.math("SUBTRACT", 1.0, nb.smooth(0.0022, 0.0028, irisd))
-    eyecol = nb.mixc(iris, (0.58, 0.54, 0.50), P["eye"])
+    eyecol = nb.mixc(iris, (0.42, 0.39, 0.36), P["eye"])
     eyecol = nb.mixc(pupil, eyecol, (0.01, 0.01, 0.01))
     col = nb.mixc(eye, col, eyecol)
     lash = nb.ellmask((EYE_X, EYE_Y - 0.004, EYE_Z + 0.0035), (0.0150, 0.010, 0.0042), 0.35)

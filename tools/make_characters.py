@@ -514,10 +514,8 @@ def head_sdf(P):
     head = head.su(nosef, 0.010).su(lipsf, 0.004).su(ears, 0.010).ssub(ear_cut, 0.004)
     sockets = U([sphere((sx * EYE_X, EYE_Y - 0.016, EYE_Z + 0.002), 0.017) for sx in (1, -1)])
     head = head.ssub(sockets, 0.008)
-    mouth = rbox((0, -0.098, 1.6195), (0.018, 0.010, 0.0010), 0.0008)
-    head = head.ssub(mouth, 0.002)
     eyes = U([sphere((sx * EYE_X, EYE_Y, EYE_Z), EYE_R) for sx in (1, -1)])
-    lids = U([ellipsoid((sx * EYE_X, EYE_Y - 0.0015, EYE_Z + 0.0085), (0.0155, 0.0125, 0.0062)) for sx in (1, -1)] +
+    lids = U([ellipsoid((sx * EYE_X, EYE_Y - 0.0015, EYE_Z + 0.0072), (0.0155, 0.0128, 0.0064)) for sx in (1, -1)] +
              [ellipsoid((sx * EYE_X, EYE_Y - 0.001, EYE_Z - 0.0105), (0.0145, 0.011, 0.0035)) for sx in (1, -1)])
     return head.su(lids, 0.004) | eyes
 
@@ -622,6 +620,8 @@ def build_common_upper(body, P, loose, hem, collar=True, hood=False):
 def build_pants(body, loose, top=1.04, bottom=0.14, cargo=True, kneepads=False):
     lo = U([body.torso & keep((0, 0, 1.10), (0, 0, -1)), body.leg["L"], body.leg["R"]], 0.035)
     pnt = lo.grow(loose) & keep((0, 0, top), (0, 0, -1)) & keep((0, 0, bottom), (0, 0, 1))
+    gap = F(lambda p: np.maximum(np.abs(p[:, 0]) - 0.010, p[:, 2] - (0.80 - 0.4 * np.abs(p[:, 1]))))
+    pnt = pnt.ssub(gap, 0.02)
     extras = []
     if cargo:
         for s, sx in (("L", 1), ("R", -1)):
@@ -665,7 +665,7 @@ def vest_sdf(body, P, slick=False):
     cb = t.grow(0.022) & keep((0, 0, 1.235), (0, 0, -1)) & keep((0, 0, 1.105), (0, 0, 1))
     straps = []
     for sx in (1, -1):
-        straps.append(chain([V(0.085 * sx, yf - 0.005, 1.400), V(0.110 * sx, -0.010, 1.500), V(0.098 * sx, yb + 0.010, 1.420)],
+        straps.append(chain([V(0.090 * sx, yf - 0.005, 1.390), V(0.120 * sx, -0.010, 1.478), V(0.105 * sx, yb + 0.010, 1.410)],
                             [0.022, 0.022, 0.022]) & keep((0, 0, 1.38), (0, 0, 1)))
     straps = U(straps)
     v = U([fp, bp, cb, straps], 0.012)
@@ -764,7 +764,7 @@ def build_pieces(cid, P):
         pcs.append(Piece("chinstrap", "Leather", strap, col("#2a2620"), PAT_WEBBING, tris=150, step=0.003, rule="head"))
         beard = head.grow(0.011) & F(lambda p: p[:, 2] - (1.655 + np.maximum(0, p[:, 1] + 0.04) * 0.6)) & \
             keep((0, 0.04, 0), (0, -1, 0)) & keep((0, 0, 1.565), (0, 0, 1))
-        beard = beard - ellipsoid((0, -0.096, 1.618), (0.021, 0.030, 0.012))
+        beard = beard - ellipsoid((0, -0.096, 1.617), (0.020, 0.030, 0.0075))
         hair = head.grow(0.008) & scalp_cut(1.76, 1.64, 1.71)
         pcs.append(Piece("hair", "Hair", beard | hair, hairc, tris=700, step=0.0028, rule="head"))
         for s in ("L", "R"):
@@ -1151,7 +1151,7 @@ def _gunmount_local():
 
 
 GUNMOUNT_LOCAL = _gunmount_local()      # gun frame in Hand.R bone space
-HANDGUARD = Vector((0.0, -0.215, 0.080))   # left-hand grip point, gun space
+HANDGUARD = Vector((0.0, -0.200, 0.080))   # left-hand grip point, gun space
 _RLH = Matrix(((0, -1, 0), (0, 0, -1), (1, 0, 0)))
 
 
@@ -1384,8 +1384,8 @@ def kf(t, keys):
 
 
 TAU = 2 * math.pi
-LOW_READY = gun_frame((-0.100, -0.270, 1.110), yaw=24, pitch=30)
-CARRY = gun_frame((-0.100, -0.265, 1.150), yaw=22, pitch=18)
+LOW_READY = gun_frame((-0.090, -0.255, 1.165), yaw=26, pitch=22)
+CARRY = gun_frame((-0.090, -0.255, 1.170), yaw=24, pitch=16)
 HIGH_PORT = gun_frame((-0.090, -0.250, 1.230), yaw=38, pitch=-40, roll=-10)
 AIM = gun_frame((-0.125, -0.370, 1.375), yaw=0, pitch=0)
 
@@ -1455,7 +1455,7 @@ def a_idle(t):
     p.foot["L"] = (p.foot["L"][0], 0.0, 10.0, None)
     p.foot["R"] = (p.foot["R"][0], 0.0, 14.0, None)
     p.r("Shoulder.L", z=0)
-    p.rifle(gun_frame((-0.100, -0.270, 1.110 + 0.004 * br), yaw=24, pitch=30))
+    p.rifle(gun_frame((-0.090, -0.255, 1.165 + 0.004 * br), yaw=26, pitch=22))
     return p
 
 
@@ -1488,7 +1488,7 @@ def a_crouch_idle(t):
     p.r("Head", x=-12, z=4)
     p.foot["L"] = (ankle("L", 0.15, -0.10), 0.0, 8.0, None)
     p.foot["R"] = (ankle("R", 0.13, 0.12, 0.05), 32.0, 14.0, None)
-    p.rifle(gun_frame((-0.100, -0.280, 1.130), yaw=24, pitch=22))
+    p.rifle(gun_frame((-0.090, -0.265, 1.165), yaw=26, pitch=18))
     return p
 
 
@@ -1535,7 +1535,7 @@ def a_land(t):
     p.r("Head", x=-lean * 0.6)
     p.foot["L"] = (ankle("L", 0.14, -0.04), 0.0, 8.0, None)
     p.foot["R"] = (ankle("R", 0.14, 0.04), 0.0, 8.0, None)
-    p.rifle(gun_frame((-0.100, -0.27, kf(t, [(0, 1.16), (0.1, 1.10), (0.5, 1.15)])), yaw=22, pitch=kf(t, [(0, 10), (0.1, 30), (0.5, 18)])))
+    p.rifle(gun_frame((-0.090, -0.255, kf(t, [(0, 1.17), (0.1, 1.15), (0.5, 1.17)])), yaw=24, pitch=kf(t, [(0, 10), (0.1, 22), (0.5, 16)])))
     return p
 
 
@@ -1563,11 +1563,14 @@ def a_vault(t):
     p.r("Spine", x=lean * 0.3)
     p.r("Chest", x=lean * 0.3, z=kf(t, [(0, 0), (0.35, 15), (0.7, 0)]))
     p.r("Head", x=-lean * 0.6)
-    hl = kf(t, [(0, (0.22, -0.30, 1.05)), (0.15, (0.16, -0.42, 1.00)), (0.45, (0.16, -0.40, 1.00)), (0.6, (0.30, -0.20, 1.25)), (0.8, (0.22, -0.30, 1.10))])
-    p.hand["L"] = (hand_from_grip("L", hl, (0, -1, 0), (0, 0, -1)), None, Vector((0.6, 0.5, 0.0)))
+    hl = kf(t, [(0, (0.20, -0.28, 1.08)), (0.15, (0.16, -0.36, 1.00)), (0.45, (0.16, -0.36, 0.98)), (0.6, (0.28, -0.22, 1.20)), (0.8, (0.20, -0.28, 1.10))])
+    p.hand["L"] = (hand_from_grip("L", hl, (0, -1, 0), (0, 0, -1)), "Chest", Vector((0.6, 0.5, 0.0)))
     p.rifle(gun_frame((-0.10, -0.24, 1.20), yaw=25, pitch=-20), left=False)
     lk = kf(t, [(0, (0.12, -0.03, 0.088)), (0.15, (0.12, 0.0, 0.10)), (0.4, (-0.05, -0.10, 0.60)), (0.62, (0.05, -0.25, 0.40)), (0.8, (0.13, -0.05, 0.088))])
     rk = kf(t, [(0, (-0.12, 0.03, 0.088)), (0.18, (-0.12, 0.05, 0.15)), (0.4, (-0.28, -0.05, 0.50)), (0.65, (-0.15, -0.10, 0.25)), (0.8, (-0.12, 0.04, 0.088))])
+    lift = max(0.0, p.loc.z) * 0.8
+    lk = lk + Vector((0, 0, lift))
+    rk = rk + Vector((0, 0, lift))
     p.foot["L"] = (lk, kf(t, [(0, 0), (0.4, 30), (0.8, 0)]), 6.0, Vector((-0.6, -1, 0.3)))
     p.foot["R"] = (rk, kf(t, [(0, 0), (0.4, 40), (0.8, 0)]), 6.0, Vector((-1.0, -0.5, 0.2)))
     return p
@@ -1670,7 +1673,7 @@ ACTIONS = [
     ("WalkBack", lambda t: gait(1.1 - t, 1.1, 0.55, 0.10, 0.60, 0.04, 0.018, lean=2, toe=22, heel=10, yaw=4), 1.1, True),
     ("CrouchIdle", a_crouch_idle, 3.0, True),
     ("CrouchWalk", lambda t: gait(t, 1.1, 0.55, 0.10, 0.62, 0.33, 0.018, width=0.15, lean=22, toe=25, heel=8, yaw=5,
-                                  gun=gun_frame((-0.10, -0.28, 1.13), yaw=24, pitch=22)), 1.1, True),
+                                  gun=gun_frame((-0.09, -0.265, 1.165), yaw=26, pitch=18)), 1.1, True),
     ("Jump", a_jump, 0.5, False),
     ("Fall", a_fall, 0.8, True),
     ("Land", a_land, 0.5, False),
@@ -1752,6 +1755,19 @@ def build_character(cid):
         stats[pc.name] = len(o.data.polygons)
         objs.append(o)
     bpy.data.objects.remove(proxy[0])
+    # one UV layout per material (each material owns its whole 0-1 texture)
+    groups = []
+    for m in MATERIALS:
+        g = [o for o, pc in zip(objs, pcs) if pc.mat == m]
+        if not g:
+            continue
+        select_only(g, g[0])
+        if len(g) > 1:
+            bpy.ops.object.join()
+        go = bpy.context.view_layer.objects.active
+        unwrap_object(go)
+        groups.append(go)
+    objs = groups
     select_only(objs, objs[0])
     bpy.ops.object.join()
     mesh = bpy.context.view_layer.objects.active
@@ -1772,3 +1788,776 @@ def attach_mesh(rig, mesh):
     mesh.parent = rig
     md = mesh.modifiers.new("Armature", "ARMATURE")
     md.object = rig
+
+
+# ==========================================================================
+# Materials: procedural Cycles shaders baked to small PBR textures
+# ==========================================================================
+
+class NB:
+    """Tiny node-graph builder."""
+
+    def __init__(self, tree):
+        self.t = tree
+
+    def node(self, kind, **props):
+        n = self.t.nodes.new(kind)
+        for k, v in props.items():
+            setattr(n, k, v)
+        return n
+
+    def inp(self, sock, val):
+        if isinstance(val, bpy.types.NodeSocket):
+            self.t.links.new(val, sock)
+        else:
+            if isinstance(val, (tuple, list)) and len(val) == 3 and sock.type == "RGBA":
+                val = (*val, 1.0)
+            sock.default_value = val
+
+    def math(self, op, a, b=0.0, clamp=False):
+        n = self.node("ShaderNodeMath", operation=op, use_clamp=clamp)
+        self.inp(n.inputs[0], a)
+        self.inp(n.inputs[1], b)
+        return n.outputs[0]
+
+    def vmath(self, op, a, b=(0, 0, 0)):
+        n = self.node("ShaderNodeVectorMath", operation=op)
+        self.inp(n.inputs[0], a)
+        self.inp(n.inputs[1], b)
+        return n.outputs["Value"] if op in ("LENGTH", "DOT_PRODUCT", "DISTANCE") else n.outputs["Vector"]
+
+    def smooth(self, lo, hi, x):
+        n = self.node("ShaderNodeMapRange", interpolation_type="SMOOTHSTEP")
+        self.inp(n.inputs["Value"], x)
+        n.inputs["From Min"].default_value = lo
+        n.inputs["From Max"].default_value = hi
+        return n.outputs["Result"]
+
+    def mixc(self, fac, a, b):
+        n = self.node("ShaderNodeMix", data_type="RGBA", clamp_factor=True)
+        self.inp(n.inputs[0], fac)
+        self.inp(n.inputs[6], a)
+        self.inp(n.inputs[7], b)
+        return n.outputs[2]
+
+    def mulc(self, a, b):
+        n = self.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY", clamp_factor=True)
+        n.inputs[0].default_value = 1.0
+        self.inp(n.inputs[6], a)
+        self.inp(n.inputs[7], b)
+        return n.outputs[2]
+
+    def mixf(self, fac, a, b):
+        n = self.node("ShaderNodeMix", data_type="FLOAT", clamp_factor=True)
+        self.inp(n.inputs[0], fac)
+        self.inp(n.inputs[2], a)
+        self.inp(n.inputs[3], b)
+        return n.outputs[0]
+
+    def gray(self, v):
+        n = self.node("ShaderNodeCombineColor")
+        for i in range(3):
+            self.inp(n.inputs[i], v)
+        return n.outputs[0]
+
+    def pos(self, scale=(1, 1, 1), offset=(0, 0, 0)):
+        tc = self.node("ShaderNodeTexCoord")
+        mp = self.node("ShaderNodeMapping")
+        self.t.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+        mp.inputs["Location"].default_value = offset
+        mp.inputs["Scale"].default_value = scale
+        return mp.outputs["Vector"]
+
+    def noise(self, vec, scale, detail=4.0, rough=0.55, distortion=0.0, color=False):
+        n = self.node("ShaderNodeTexNoise")
+        self.inp(n.inputs["Vector"], vec)
+        n.inputs["Scale"].default_value = scale
+        n.inputs["Detail"].default_value = detail
+        n.inputs["Roughness"].default_value = rough
+        n.inputs["Distortion"].default_value = distortion
+        return n.outputs["Color" if color else "Fac"]
+
+    def wave(self, vec, scale, axis="X", distortion=0.0, profile="SIN"):
+        n = self.node("ShaderNodeTexWave", wave_type="BANDS", bands_direction=axis, wave_profile=profile)
+        self.inp(n.inputs["Vector"], vec)
+        n.inputs["Scale"].default_value = scale
+        n.inputs["Distortion"].default_value = distortion
+        return n.outputs["Fac"]
+
+    def voronoi(self, vec, scale, feature="F1"):
+        n = self.node("ShaderNodeTexVoronoi", feature=feature)
+        self.inp(n.inputs["Vector"], vec)
+        n.inputs["Scale"].default_value = scale
+        return n.outputs["Distance"]
+
+    def attr(self, name, out="Color"):
+        n = self.node("ShaderNodeAttribute", attribute_name=name)
+        return n.outputs[out]
+
+    def ao(self, dist, samples=16):
+        n = self.node("ShaderNodeAmbientOcclusion", samples=samples)
+        n.inputs["Distance"].default_value = dist
+        return n.outputs["AO"]
+
+    def edge(self, radius, gain):
+        bev = self.node("ShaderNodeBevel", samples=8)
+        bev.inputs["Radius"].default_value = radius
+        geo = self.node("ShaderNodeNewGeometry")
+        d = self.vmath("DOT_PRODUCT", bev.outputs[0], geo.outputs["Normal"])
+        return self.math("MULTIPLY", self.math("SUBTRACT", 1.0, d), gain, clamp=True)
+
+    def bump(self, height, strength, distance=0.001, normal=None):
+        b = self.node("ShaderNodeBump")
+        b.inputs["Strength"].default_value = strength
+        b.inputs["Distance"].default_value = distance
+        self.inp(b.inputs["Height"], height)
+        if normal is not None:
+            self.inp(b.inputs["Normal"], normal)
+        return b.outputs["Normal"]
+
+    def is_pat(self, pat, k):
+        return self.math("COMPARE", pat, float(k)) if False else self._cmp(pat, k)
+
+    def _cmp(self, pat, k):
+        n = self.node("ShaderNodeMath", operation="COMPARE")
+        self.inp(n.inputs[0], pat)
+        n.inputs[1].default_value = float(k)
+        n.inputs[2].default_value = 0.4
+        return n.outputs[0]
+
+    def ellmask(self, c, r, soft=0.4, mirror=True):
+        """1 inside an (x-mirrored) ellipsoid, soft edge."""
+        p = self.pos()
+        if mirror:
+            sep = self.node("ShaderNodeSeparateXYZ")
+            self.t.links.new(p, sep.inputs[0])
+            cmb = self.node("ShaderNodeCombineXYZ")
+            self.t.links.new(self.math("ABSOLUTE", sep.outputs[0]), cmb.inputs[0])
+            self.t.links.new(sep.outputs[1], cmb.inputs[1])
+            self.t.links.new(sep.outputs[2], cmb.inputs[2])
+            p = cmb.outputs[0]
+        q = self.vmath("DIVIDE", self.vmath("SUBTRACT", p, tuple(c)), tuple(r))
+        d = self.vmath("LENGTH", q)
+        return self.math("SUBTRACT", 1.0, self.smooth(1.0 - soft, 1.0, d))
+
+
+def base_fabric(nb, tint, pat):
+    """Fabric family: plain / camo / knit / ripstop / canvas / quilted."""
+    p = nb.pos()
+    var = nb.noise(p, 9.0, 5, 0.6)
+    col = nb.mulc(tint, nb.gray(nb.math("ADD", 0.86, nb.math("MULTIPLY", var, 0.28))))
+    # camo: four blob layers derived from the tint
+    pc = nb.pos((1, 1, 0.8))
+    n1 = nb.noise(pc, 9.0, 3, 0.5, 0.4)
+    n2 = nb.noise(nb.pos((1, 1, 0.8), (3.1, 1.7, 0.4)), 11.0, 3, 0.5, 0.4)
+    n3 = nb.noise(nb.pos((1, 1, 0.8), (7.3, 2.2, 5.1)), 14.0, 2, 0.5, 0.3)
+    dark = nb.mulc(tint, (0.42, 0.42, 0.40))
+    light = nb.mulc(tint, (1.30, 1.22, 1.05))
+    brown = nb.mulc(tint, (0.95, 0.72, 0.55))
+    camo = nb.mixc(nb.smooth(0.50, 0.53, n1), col, dark)
+    camo = nb.mixc(nb.smooth(0.56, 0.59, n2), camo, light)
+    camo = nb.mixc(nb.smooth(0.60, 0.63, n3), camo, brown)
+    is_camo = nb.is_pat(pat, PAT_CAMO)
+    col = nb.mixc(is_camo, col, camo)
+    # weave / pattern heights
+    rip = nb.math("MAXIMUM", nb.smooth(0.85, 0.97, nb.wave(nb.pos(), 90, "X", profile="SIN")),
+                  nb.smooth(0.85, 0.97, nb.wave(nb.pos(), 90, "Z", profile="SIN")))
+    knit = nb.noise(nb.pos((380, 380, 45)), 1.0, 1, 0.5)
+    canvas = nb.wave(nb.pos((1, 1, 1)), 260, "DIAGONAL")
+    quilt = nb.smooth(0.0, 0.18, nb.wave(nb.pos(), 16, "Z", profile="SAW"))
+    fine = nb.noise(p, 420.0, 2, 0.5)
+    h = nb.math("MULTIPLY", fine, 0.15)
+    h = nb.math("ADD", h, nb.math("MULTIPLY", nb.is_pat(pat, PAT_RIP), nb.math("MULTIPLY", rip, 0.35)))
+    h = nb.math("ADD", h, nb.math("MULTIPLY", nb.is_pat(pat, PAT_KNIT), nb.math("MULTIPLY", knit, 1.0)))
+    h = nb.math("ADD", h, nb.math("MULTIPLY", nb.is_pat(pat, PAT_CANVAS), nb.math("MULTIPLY", canvas, 0.35)))
+    h = nb.math("ADD", h, nb.math("MULTIPLY", nb.is_pat(pat, PAT_QUILT), nb.math("MULTIPLY", quilt, 1.2)))
+    # creases: stretched low-frequency noise reads as folds
+    folds = nb.noise(nb.pos((14, 14, 4.5)), 2.6, 3, 0.5, 0.6)
+    fold_h = nb.smooth(0.35, 0.75, folds)
+    nrm = nb.bump(fold_h, 0.35, 0.02)
+    nrm = nb.bump(h, 0.55, 0.0012, nrm)
+    ao = nb.ao(0.08)
+    edge = nb.edge(0.006, 1.6)
+    col = nb.mixc(nb.math("MULTIPLY", edge, 0.35), col, nb.mulc(col, (1.35, 1.35, 1.3)))      # edge wear
+    col = nb.mixc(nb.math("MULTIPLY", nb.is_pat(pat, PAT_QUILT), nb.math("SUBTRACT", 1, quilt)), col, nb.mulc(col, (0.7, 0.7, 0.7)))
+    col = nb.mulc(col, nb.gray(nb.math("ADD", 0.30, nb.math("MULTIPLY", ao, 0.70))))
+    col = nb.mulc(col, nb.gray(nb.math("ADD", 0.86, nb.math("MULTIPLY", fold_h, 0.18))))
+    rough = nb.math("ADD", 0.80, nb.math("MULTIPLY", var, 0.12))
+    return col, rough, 0.0, nrm
+
+
+def recipe_fabric(nb, P):
+    return base_fabric(nb, nb.attr("tint"), nb.attr("pat", "Fac"))
+
+
+def recipe_team(nb, P):
+    pat = nb.attr("pat", "Fac")
+    col, rough, metal, nrm = base_fabric(nb, (0.86, 0.86, 0.86), pat)
+    return col, rough, metal, nrm
+
+
+def recipe_leather(nb, P):
+    tint = nb.attr("tint")
+    pat = nb.attr("pat", "Fac")
+    p = nb.pos()
+    grain = nb.voronoi(p, 900.0)
+    var = nb.noise(p, 12.0, 4, 0.6)
+    col = nb.mulc(tint, nb.gray(nb.math("ADD", 0.80, nb.math("MULTIPLY", var, 0.4))))
+    edge = nb.edge(0.008, 1.8)
+    col = nb.mixc(nb.math("MULTIPLY", edge, 0.55), col, nb.mulc(tint, (1.6, 1.55, 1.45)))
+    sep = nb.node("ShaderNodeSeparateXYZ")
+    nb.t.links.new(p, sep.inputs[0])
+    sole = nb.math("MULTIPLY", nb.is_pat(pat, PAT_SOLE), nb.math("SUBTRACT", 1.0, nb.smooth(0.030, 0.036, sep.outputs[2])))
+    welt = nb.math("MULTIPLY", nb.is_pat(pat, PAT_SOLE), nb.math("SUBTRACT", 1.0, nb.smooth(0.006, 0.0, nb.math("ABSOLUTE", nb.math("SUBTRACT", sep.outputs[2], 0.040)))))
+    col = nb.mixc(sole, col, (0.035, 0.032, 0.03))
+    col = nb.mixc(nb.math("MULTIPLY", welt, 0.6), col, nb.mulc(tint, (0.5, 0.5, 0.5)))
+    web = nb.math("MULTIPLY", nb.is_pat(pat, PAT_WEBBING), nb.smooth(0.7, 0.95, nb.wave(nb.pos(), 260, "Z")))
+    tread = nb.math("MULTIPLY", sole, nb.smooth(0.4, 0.6, nb.wave(nb.pos(), 70, "Y", profile="SAW")))
+    h = nb.math("ADD", nb.math("MULTIPLY", grain, 0.25), nb.math("ADD", nb.math("MULTIPLY", web, 0.3), nb.math("MULTIPLY", tread, 1.0)))
+    creases = nb.noise(nb.pos((6, 6, 20)), 6.0, 3, 0.6, 0.5)
+    nrm = nb.bump(nb.smooth(0.4, 0.7, creases), 0.3, 0.01)
+    nrm = nb.bump(h, 0.5, 0.0012, nrm)
+    ao = nb.ao(0.06)
+    col = nb.mulc(col, nb.gray(nb.math("ADD", 0.30, nb.math("MULTIPLY", ao, 0.70))))
+    rough = nb.mixf(sole, nb.math("ADD", 0.42, nb.math("MULTIPLY", nb.math("ADD", var, edge), 0.25)), 0.88)
+    return col, rough, 0.0, nrm
+
+
+def recipe_gear(nb, P):
+    tint = nb.attr("tint")
+    pat = nb.attr("pat", "Fac")
+    p = nb.pos()
+    var = nb.noise(p, 10.0, 4, 0.6)
+    col = nb.mulc(tint, nb.gray(nb.math("ADD", 0.85, nb.math("MULTIPLY", var, 0.3))))
+    molle = nb.smooth(0.55, 0.75, nb.wave(nb.pos(), 40, "Z", profile="SIN"))
+    is_web = nb.is_pat(pat, PAT_WEBBING)
+    is_hard = nb.is_pat(pat, PAT_HARD)
+    is_rip = nb.is_pat(pat, PAT_RIP)
+    col = nb.mixc(nb.math("MULTIPLY", is_web, nb.math("MULTIPLY", molle, 0.35)), col, nb.mulc(col, (0.6, 0.6, 0.6)))
+    rip = nb.math("MAXIMUM", nb.smooth(0.85, 0.97, nb.wave(nb.pos(), 110, "X")), nb.smooth(0.85, 0.97, nb.wave(nb.pos(), 110, "Z")))
+    weave = nb.noise(p, 500.0, 1, 0.5)
+    speck = nb.noise(p, 180.0, 2, 0.5)
+    h = nb.math("MULTIPLY", weave, nb.math("SUBTRACT", 1.0, is_hard))
+    h = nb.math("ADD", h, nb.math("MULTIPLY", is_web, nb.math("MULTIPLY", molle, 1.2)))
+    h = nb.math("ADD", h, nb.math("MULTIPLY", is_rip, nb.math("MULTIPLY", rip, 0.5)))
+    h = nb.math("ADD", h, nb.math("MULTIPLY", is_hard, nb.math("MULTIPLY", speck, 0.2)))
+    edge = nb.edge(0.006, 1.8)
+    col = nb.mixc(nb.math("MULTIPLY", edge, 0.45), col, nb.mulc(tint, (1.5, 1.45, 1.4)))
+    folds = nb.noise(nb.pos((10, 10, 6)), 3.0, 3, 0.5, 0.5)
+    nrm = nb.bump(nb.math("MULTIPLY", nb.smooth(0.4, 0.7, folds), nb.math("SUBTRACT", 1.0, is_hard)), 0.3, 0.012)
+    nrm = nb.bump(h, 0.5, 0.0012, nrm)
+    ao = nb.ao(0.07)
+    col = nb.mulc(col, nb.gray(nb.math("ADD", 0.28, nb.math("MULTIPLY", ao, 0.72))))
+    rough = nb.mixf(is_hard, nb.math("ADD", 0.72, nb.math("MULTIPLY", var, 0.15)), nb.math("ADD", 0.5, nb.math("MULTIPLY", edge, 0.2)))
+    return col, rough, 0.0, nrm
+
+
+def recipe_hair(nb, P):
+    tint = nb.attr("tint")
+    strands = nb.noise(nb.pos((140, 140, 22)), 1.0, 6, 0.65)
+    clumps = nb.noise(nb.pos((18, 18, 6)), 1.0, 3, 0.5)
+    col = nb.mulc(tint, nb.gray(nb.math("ADD", 0.55, nb.math("MULTIPLY", nb.math("ADD", strands, nb.math("MULTIPLY", clumps, 0.5)), 0.7))))
+    ao = nb.ao(0.05)
+    col = nb.mulc(col, nb.gray(nb.math("ADD", 0.25, nb.math("MULTIPLY", ao, 0.75))))
+    nrm = nb.bump(nb.math("ADD", strands, nb.math("MULTIPLY", clumps, 0.6)), 0.8, 0.002)
+    rough = nb.math("ADD", 0.38, nb.math("MULTIPLY", strands, 0.2))
+    return col, rough, 0.0, nrm
+
+
+def recipe_skin(nb, P):
+    tone = P["skin"]
+    p = nb.pos()
+    blot = nb.noise(p, 25.0, 4, 0.6)
+    col = nb.mixc(nb.math("MULTIPLY", blot, 0.35), tone, nb.mulc(tone, (1.08, 0.86, 0.80)))
+    red = nb.math("ADD", nb.ellmask((0.045, -0.070, 1.655), (0.028, 0.03, 0.022), 0.8),
+                  nb.math("ADD", nb.ellmask((0.0, -0.105, 1.660), (0.014, 0.02, 0.02), 0.8, False),
+                          nb.ellmask((0.078, 0.008, 1.688), (0.016, 0.03, 0.035), 0.6)))
+    col = nb.mixc(nb.math("MULTIPLY", red, 0.22), col, nb.mulc(tone, (1.12, 0.78, 0.74)))
+    lips = nb.math("ADD", nb.ellmask((0, -0.090, 1.626), (0.023, 0.016, 0.0085), 0.35, False),
+                   nb.ellmask((0, -0.087, 1.612), (0.021, 0.016, 0.0095), 0.35, False))
+    lipcol = nb.mulc(tone, (0.92, 0.60, 0.60) if P["skin"][0] > 0.2 else (0.75, 0.52, 0.55))
+    col = nb.mixc(nb.math("MINIMUM", lips, 1.0), col, lipcol)
+    seam = nb.ellmask((0, -0.094, 1.6195), (0.019, 0.02, 0.0016), 0.6, False)
+    col = nb.mixc(nb.math("MULTIPLY", seam, 0.7), col, nb.mulc(lipcol, (0.45, 0.4, 0.4)))
+    hairc = P["hair"]
+    br = nb.ellmask((0.034, -0.083, 1.712), (0.022, 0.03, 0.0055 if P["female"] else 0.0068), 0.5)
+    br = nb.math("MULTIPLY", br, nb.smooth(0.3, 0.7, nb.noise(nb.pos((300, 300, 60)), 1.0, 2)))
+    col = nb.mixc(nb.math("MULTIPLY", br, P.get("brows", 0.8)), col, hairc)
+    # eyes: sclera, iris, pupil, lash line
+    eye = nb.ellmask((EYE_X, EYE_Y, EYE_Z), (EYE_R + 0.0004,) * 3, 0.04)
+    irisd = nb.vmath("LENGTH", nb.vmath("SUBTRACT", _abs_x(nb), (EYE_X, EYE_Y - EYE_R, EYE_Z)))
+    iris = nb.math("SUBTRACT", 1.0, nb.smooth(0.0058, 0.0066, irisd))
+    pupil = nb.math("SUBTRACT", 1.0, nb.smooth(0.0022, 0.0028, irisd))
+    eyecol = nb.mixc(iris, (0.58, 0.54, 0.50), P["eye"])
+    eyecol = nb.mixc(pupil, eyecol, (0.01, 0.01, 0.01))
+    col = nb.mixc(eye, col, eyecol)
+    lash = nb.ellmask((EYE_X, EYE_Y - 0.004, EYE_Z + 0.0035), (0.0150, 0.010, 0.0042), 0.35)
+    lash = nb.math("MULTIPLY", lash, nb.math("SUBTRACT", 1.0, eye))
+    col = nb.mixc(nb.math("MULTIPLY", lash, 0.75), col, nb.mulc(hairc, (0.4, 0.4, 0.4)))
+    if P.get("freckles"):
+        fr = nb.math("SUBTRACT", 1.0, nb.smooth(0.05, 0.16, nb.voronoi(p, 260.0)))
+        fr = nb.math("MULTIPLY", fr, nb.ellmask((0.03, -0.085, 1.665), (0.05, 0.04, 0.03), 0.6))
+        col = nb.mixc(nb.math("MULTIPLY", fr, 0.45), col, nb.mulc(tone, (0.75, 0.55, 0.42)))
+    if P.get("beard"):
+        stub = nb.ellmask((0.0, -0.05, 1.60), (0.07, 0.07, 0.05), 0.5)
+        col = nb.mixc(nb.math("MULTIPLY", stub, 0.35), col, nb.mulc(hairc, (0.8, 0.8, 0.8)))
+    ao = nb.ao(0.035)
+    col = nb.mulc(col, nb.gray(nb.math("ADD", 0.35, nb.math("MULTIPLY", ao, 0.65))))
+    pores = nb.noise(p, 900.0, 2, 0.5)
+    nrm = nb.bump(nb.math("ADD", pores, nb.math("MULTIPLY", blot, 0.3)), 0.12, 0.0006)
+    rough = nb.mixf(eye, nb.mixf(nb.math("MINIMUM", lips, 1.0), nb.math("ADD", 0.48, nb.math("MULTIPLY", blot, 0.12)), 0.35), 0.08)
+    return col, rough, 0.0, nrm
+
+
+def _abs_x(nb):
+    p = nb.pos()
+    sep = nb.node("ShaderNodeSeparateXYZ")
+    nb.t.links.new(p, sep.inputs[0])
+    cmb = nb.node("ShaderNodeCombineXYZ")
+    nb.t.links.new(nb.math("ABSOLUTE", sep.outputs[0]), cmb.inputs[0])
+    nb.t.links.new(sep.outputs[1], cmb.inputs[1])
+    nb.t.links.new(sep.outputs[2], cmb.inputs[2])
+    return cmb.outputs[0]
+
+
+RECIPES = {"Skin": recipe_skin, "Hair": recipe_hair, "Fabric": recipe_fabric, "Leather": recipe_leather,
+           "Gear": recipe_gear, "Team": recipe_team}
+TEX_SIZE = {"Skin": 1024, "Hair": 512, "Fabric": 1024, "Leather": 512, "Gear": 1024, "Team": 512}
+
+
+def unwrap_object(o):
+    select_only([o], o)
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=math.radians(55), island_margin=0.006, area_weight=0.0, scale_to_bounds=False)
+    bpy.ops.uv.select_all(action="SELECT")
+    bpy.ops.uv.pack_islands(rotate=True, margin=0.006)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def setup_cycles(samples):
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"
+    sc.cycles.device = "CPU"
+    sc.cycles.samples = samples
+    sc.cycles.use_denoising = False
+
+
+def bake_textures(cid, P, mesh, sizes=None):
+    sizes = dict(TEX_SIZE, **(sizes or {}))
+    setup_cycles(24)
+    sc = bpy.context.scene
+    sc.render.bake.margin = 8
+    sc.render.bake.margin_type = "EXTEND"
+    os.makedirs(TEX_TMP, exist_ok=True)
+    setups = []
+    for mat in mesh.data.materials:
+        tree = mat.node_tree
+        tree.nodes.clear()
+        nb = NB(tree)
+        c, r, m, n = RECIPES[mat.name](nb, P)
+        out = nb.node("ShaderNodeOutputMaterial")
+        emit = nb.node("ShaderNodeEmission")
+        bsdf = nb.node("ShaderNodeBsdfPrincipled")
+        nb.inp(bsdf.inputs["Normal"], n)
+        orm = nb.node("ShaderNodeCombineColor")
+        nb.inp(orm.inputs[0], 1.0)
+        nb.inp(orm.inputs[1], r)
+        nb.inp(orm.inputs[2], m)
+        size = sizes[mat.name]
+        small = max(256, size // 2)
+        ims = {}
+        nres = size if mat.name in ("Fabric", "Gear") else small
+        for key, res, data in (("base", size, False), ("orm", small // 2 if mat.name != "Skin" else small, True), ("normal", nres, True)):
+            im = bpy.data.images.new("%s_%s_%s" % (cid, mat.name, key), res, res, alpha=False)
+            im.colorspace_settings.name = "Non-Color" if data else "sRGB"
+            node = nb.node("ShaderNodeTexImage", image=im)
+            ims[key] = (im, node)
+        setups.append((mat, nb, c, orm.outputs[0], emit, bsdf, out, ims))
+    select_only([mesh], mesh)
+    for key, kind in (("base", "EMIT"), ("orm", "EMIT"), ("normal", "NORMAL")):
+        for mat, nb, c, ormo, emit, bsdf, out, ims in setups:
+            tree = mat.node_tree
+            for l in list(out.inputs["Surface"].links):
+                tree.links.remove(l)
+            for l in list(emit.inputs["Color"].links):
+                tree.links.remove(l)
+            if kind == "EMIT":
+                nb.inp(emit.inputs["Color"], c if key == "base" else ormo)
+                tree.links.new(emit.outputs[0], out.inputs["Surface"])
+            else:
+                tree.links.new(bsdf.outputs[0], out.inputs["Surface"])
+            tree.nodes.active = ims[key][1]
+        t = time.time()
+        bpy.ops.object.bake(type=kind, normal_space="TANGENT", margin=8, margin_type="EXTEND", use_clear=True)
+        log("baked %s %s in %.0fs" % (cid, key, time.time() - t))
+    # final glTF-friendly materials
+    for mat, nb, c, ormo, emit, bsdf, out, ims in setups:
+        for key in ims:
+            im = ims[key][0]
+            im.filepath_raw = os.path.join(TEX_TMP, im.name + ".png")
+            im.file_format = "PNG"
+            im.save()
+        tree = mat.node_tree
+        tree.nodes.clear()
+        nb = NB(tree)
+        out = nb.node("ShaderNodeOutputMaterial")
+        bsdf = nb.node("ShaderNodeBsdfPrincipled")
+        tree.links.new(bsdf.outputs[0], out.inputs["Surface"])
+        tb = nb.node("ShaderNodeTexImage", image=ims["base"][0])
+        tree.links.new(tb.outputs["Color"], bsdf.inputs["Base Color"])
+        to = nb.node("ShaderNodeTexImage", image=ims["orm"][0])
+        sep = nb.node("ShaderNodeSeparateColor")
+        tree.links.new(to.outputs["Color"], sep.inputs[0])
+        tree.links.new(sep.outputs[1], bsdf.inputs["Roughness"])
+        tree.links.new(sep.outputs[2], bsdf.inputs["Metallic"])
+        tn = nb.node("ShaderNodeTexImage", image=ims["normal"][0])
+        nm = nb.node("ShaderNodeNormalMap")
+        tree.links.new(tn.outputs["Color"], nm.inputs["Color"])
+        tree.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
+    # the bake-only attributes are not needed in the game
+    for name in ("tint", "pat"):
+        a = mesh.data.attributes.get(name)
+        if a:
+            mesh.data.attributes.remove(a)
+
+
+# ==========================================================================
+# Export + verification
+# ==========================================================================
+
+MAX_BYTES = int(2.45 * 1024 * 1024)
+
+
+def export_glb(path, quality):
+    bpy.ops.export_scene.gltf(
+        filepath=path, export_format="GLB", export_yup=True, use_selection=False,
+        export_texcoords=True, export_normals=True, export_tangents=False,
+        export_materials="EXPORT", export_image_format="JPEG", export_jpeg_quality=quality,
+        export_cameras=False, export_lights=False, export_extras=False, export_apply=False,
+        export_skins=True, export_influence_nb=4, export_def_bones=False, export_morph=False,
+        export_animations=True, export_animation_mode="ACTIONS", export_force_sampling=True,
+        export_frame_step=1, export_optimize_animation_size=True, export_anim_single_armature=True,
+        export_reset_pose_bones=True, export_draco_mesh_compression_enable=False,
+    )
+
+
+def read_glb(path):
+    with open(path, "rb") as fh:
+        data = fh.read()
+    import struct
+    magic, ver, length = struct.unpack_from("<III", data, 0)
+    assert magic == 0x46546C67, "not a GLB"
+    clen, ctype = struct.unpack_from("<II", data, 12)
+    return json.loads(data[20:20 + clen].decode("utf-8")), len(data)
+
+
+def verify_glb(path):
+    js, nbytes = read_glb(path)
+    nodes = js["nodes"]
+    names = [n.get("name") for n in nodes]
+    skin = js["skins"][0]
+    joints = sorted(nodes[j]["name"] for j in skin["joints"])
+    assert joints == sorted(BONE_ORDER), "bone names differ: %s" % joints
+    anims = {a["name"]: a for a in js.get("animations", [])}
+    missing = [a for a in ACTION_NAMES if a not in anims]
+    assert not missing, "missing animations %s" % missing
+    durations = {}
+    for name, a in anims.items():
+        t = 0.0
+        for s in a["samplers"]:
+            t = max(t, js["accessors"][s["input"]]["max"][0])
+        durations[name] = round(t, 3)
+    assert "GunMount" in names, "GunMount missing"
+    gi = names.index("GunMount")
+    par = [i for i, n in enumerate(nodes) if gi in n.get("children", [])]
+    assert par and nodes[par[0]]["name"] == "Hand.R", "GunMount must be a child of Hand.R"
+    mats = [m["name"] for m in js["materials"]]
+    assert "Team" in mats, "Team material missing"
+    assert "extensionsUsed" not in js or "KHR_draco_mesh_compression" not in js["extensionsUsed"]
+    tris = 0
+    lo = [1e9] * 3
+    hi = [-1e9] * 3
+    for m in js["meshes"]:
+        for pr in m["primitives"]:
+            tris += js["accessors"][pr["indices"]]["count"] // 3
+            acc = js["accessors"][pr["attributes"]["POSITION"]]
+            lo = [min(a, b) for a, b in zip(lo, acc["min"])]
+            hi = [max(a, b) for a, b in zip(hi, acc["max"])]
+    texsz = {}
+    for im in js.get("images", []):
+        texsz[im.get("name", "?")] = js["bufferViews"][im["bufferView"]]["byteLength"]
+    info = {
+        "file": os.path.relpath(path, ROOT).replace(os.sep, "/"),
+        "bytes": nbytes,
+        "triangles": tris,
+        "height_m": round(hi[1] - lo[1], 3),
+        "feet_y": round(lo[1], 3),
+        "bbox_min": [round(x, 3) for x in lo],
+        "bbox_max": [round(x, 3) for x in hi],
+        "materials": mats,
+        "bones": [nodes[j]["name"] for j in skin["joints"]],
+        "animations": {k: durations[k] for k in ACTION_NAMES},
+        "texture_bytes": sum(texsz.values()),
+        "images": len(js.get("images", [])),
+    }
+    assert 1.75 <= info["height_m"] <= 1.95, "height %.3f" % info["height_m"]
+    assert abs(info["feet_y"]) < 0.02, "feet not on y=0"
+    assert tris <= 12500, "too many triangles %d" % tris
+    # Blender round trip: check GunMount orientation in the aim pose
+    reset_scene()
+    bpy.ops.import_scene.gltf(filepath=path)
+    rig = next(o for o in bpy.context.scene.objects if o.type == "ARMATURE")
+    gm = bpy.data.objects["GunMount"]
+    act = next(a for a in bpy.data.actions if a.name.startswith("AimIdle"))
+    rig.animation_data.action = act
+    bpy.context.scene.frame_set(0)
+    bpy.context.view_layer.update()
+    mw = gm.matrix_world
+    barrel = (mw.to_3x3() @ Vector((0, -1, 0))).normalized()
+    up = (mw.to_3x3() @ Vector((0, 0, 1))).normalized()
+    info["aim_barrel_dir_gltf"] = [round(barrel.x, 3), round(barrel.z, 3), round(-barrel.y, 3)]
+    info["aim_grip_pos_gltf"] = [round(mw.translation.x, 3), round(mw.translation.z, 3), round(-mw.translation.y, 3)]
+    assert barrel.y < -0.97 and up.z > 0.9, "GunMount not aligned in AimIdle (%s, %s)" % (barrel, up)
+    return info
+
+
+def make_character(cid):
+    reset_scene()
+    P, rig, mesh, pieces = build_character(cid)
+    bake_textures(cid, P, mesh)
+    attach_mesh(rig, mesh)
+    bake_all_actions(rig)
+    add_gunmount(rig)
+    rig.animation_data.action = None
+    for o in bpy.context.scene.objects:
+        o.select_set(False)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    path = os.path.join(OUT_DIR, "char_%s.glb" % cid)
+    q = 88
+    while True:
+        export_glb(path, q)
+        size = os.path.getsize(path)
+        log("exported %s q=%d: %.2f MB" % (path, q, size / 1048576))
+        if size <= MAX_BYTES or q <= 50:
+            break
+        q -= 8
+    info = verify_glb(path)
+    info.update(name=P["name"], jpeg_quality=q, pieces=pieces)
+    log("verified", cid, {k: info[k] for k in ("triangles", "bytes", "height_m")})
+    return info
+
+
+# ==========================================================================
+# Renders
+# ==========================================================================
+
+def import_char(cid, offset=(0, 0, 0), rot_z=0.0, action="Idle", frame=0, gun="ar"):
+    before = set(bpy.data.objects)
+    acts_before = set(bpy.data.actions)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(OUT_DIR, "char_%s.glb" % cid))
+    new = [o for o in bpy.data.objects if o not in before]
+    acts = [a for a in bpy.data.actions if a not in acts_before]
+    rig = next(o for o in new if o.type == "ARMATURE")
+    root = rig
+    while root.parent is not None:
+        root = root.parent
+    root.location = Vector(offset)
+    root.rotation_mode = "XYZ"
+    root.rotation_euler = (0, 0, math.radians(rot_z))
+    gm = next(o for o in new if o.name.startswith("GunMount"))
+    act = next(a for a in acts if a.name.split("_")[0] == action)
+    rig.animation_data_create()
+    for tr in rig.animation_data.nla_tracks:
+        tr.mute = True
+    rig.animation_data.action = act
+    rig["frame"] = frame
+    if gun:
+        b2 = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(GUN_DIR, gun + ".glb"))
+        gnew = [o for o in bpy.data.objects if o not in b2]
+        for o in gnew:
+            if o.parent is None:
+                o.parent = gm
+                o.matrix_parent_inverse.identity()
+                o.location = (0, 0, 0)
+                o.rotation_mode = "QUATERNION"
+                o.rotation_quaternion = (1, 0, 0, 0)
+                o.scale = (1, 1, 1)
+    return rig
+
+
+def studio(sc, ctr):
+    world = bpy.data.worlds.new("Studio")
+    world.use_nodes = True
+    world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.22, 0.23, 0.25, 1)
+    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.25
+    sc.world = world
+    bm = bmesh.new()
+    W = 14.0
+    prof = [(-6.0, 0.0), (3.0, 0.0)]
+    for i in range(1, 10):
+        a = math.radians(90 * i / 9)
+        prof.append((3.0 + math.sin(a) * 2.5, (1 - math.cos(a)) * 2.5))
+    prof.append((5.5, 8.0))
+    rows = [[bm.verts.new((-W / 2 + W * k, y, z)) for k in (0, 1)] for y, z in prof]
+    for a, b in zip(rows[:-1], rows[1:]):
+        bm.faces.new((a[0], a[1], b[1], b[0]))
+    me = bpy.data.meshes.new("Backdrop")
+    bm.to_mesh(me)
+    bm.free()
+    me.shade_smooth()
+    bd = link(bpy.data.objects.new("Backdrop", me))
+    mat = bpy.data.materials.new("Backdrop")
+    mat.use_nodes = True
+    bp = mat.node_tree.nodes["Principled BSDF"]
+    bp.inputs["Base Color"].default_value = (0.36, 0.37, 0.38, 1)
+    bp.inputs["Roughness"].default_value = 0.85
+    me.materials.append(mat)
+
+    def area(name, loc, size, energy, color=(1, 1, 1)):
+        ld = bpy.data.lights.new(name, "AREA")
+        ld.shape = "RECTANGLE"
+        ld.size, ld.size_y = size
+        ld.energy = energy
+        ld.color = color
+        o = link(bpy.data.objects.new(name, ld))
+        o.location = Vector(loc)
+        o.rotation_euler = (ctr - o.location).to_track_quat("-Z", "Y").to_euler()
+    area("Key", (-2.4, -3.2, 3.4), (2.2, 1.6), 650, (1.0, 0.95, 0.88))
+    area("Fill", (3.0, -2.6, 1.6), (2.0, 2.0), 260, (0.85, 0.92, 1.0))
+    area("Rim", (1.6, 2.6, 3.0), (2.4, 0.6), 700, (0.95, 0.97, 1.0))
+    area("RimL", (-2.0, 2.4, 2.6), (2.0, 0.5), 450)
+
+
+def sky(sc):
+    world = bpy.data.worlds.new("Sky")
+    world.use_nodes = True
+    nt = world.node_tree
+    skyn = nt.nodes.new("ShaderNodeTexSky")
+    skyn.sky_type = "NISHITA"
+    skyn.sun_elevation = math.radians(24)
+    skyn.sun_rotation = math.radians(215)
+    skyn.altitude = 400
+    skyn.air_density = 1.2
+    skyn.dust_density = 2.0
+    nt.links.new(skyn.outputs[0], nt.nodes["Background"].inputs[0])
+    nt.nodes["Background"].inputs["Strength"].default_value = 0.30
+    sc.world = world
+    me = bpy.data.meshes.new("Ground")
+    me.from_pydata([(-40, -40, 0), (40, -40, 0), (40, 40, 0), (-40, 40, 0)], [], [(0, 1, 2, 3)])
+    g = link(bpy.data.objects.new("Ground", me))
+    mat = bpy.data.materials.new("Ground")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bp = nt.nodes["Principled BSDF"]
+    nz = nt.nodes.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = 3.0
+    nz.inputs["Detail"].default_value = 8.0
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.16, 0.14, 0.09, 1)
+    ramp.color_ramp.elements[1].color = (0.30, 0.27, 0.18, 1)
+    nt.links.new(nz.outputs["Fac"], ramp.inputs[0])
+    nt.links.new(ramp.outputs[0], bp.inputs["Base Color"])
+    bp.inputs["Roughness"].default_value = 0.95
+    me.materials.append(mat)
+
+
+def render_setup(samples=96):
+    sc = bpy.context.scene
+    setup_cycles(samples)
+    sc.cycles.use_denoising = True
+    sc.render.resolution_x = 1600
+    sc.render.resolution_y = 900
+    sc.render.film_transparent = False
+    sc.view_settings.view_transform = "AgX"
+    sc.view_settings.look = "AgX - Punchy"
+    sc.view_settings.exposure = -0.35
+    return sc
+
+
+def camera(sc, loc, tgt, lens):
+    cd = bpy.data.cameras.new("Cam")
+    cd.lens = lens
+    cam = link(bpy.data.objects.new("Cam", cd))
+    cam.location = Vector(loc)
+    cam.rotation_euler = (Vector(tgt) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    sc.camera = cam
+    return cam
+
+
+def set_frames(rigs):
+    sc = bpy.context.scene
+    # every rig holds its own pose via NLA-free single action; evaluate at its frame
+    for r in rigs:
+        act = r.animation_data.action
+        f = r.get("frame", 0)
+        r.animation_data.action_extrapolation = "HOLD"
+        r.animation_data.action_blend_type = "REPLACE"
+        r.animation_data.action_influence = 1.0
+        # offset the action so that frame 1 of the scene shows frame `f` of the clip
+        for fc in act.fcurves:
+            for kp in fc.keyframe_points:
+                kp.co.x -= f
+                kp.handle_left.x -= f
+                kp.handle_right.x -= f
+    sc.frame_set(0)
+
+
+def render_character(cid):
+    os.makedirs(RENDER_DIR, exist_ok=True)
+    for view, rz in (("front", 0.0), ("three_quarter", 38.0), ("side", 90.0)):
+        reset_scene()
+        sc = render_setup()
+        rig = import_char(cid, rot_z=rz, action="Idle", frame=24)
+        set_frames([rig])
+        ctr = Vector((0, 0, 0.93))
+        studio(sc, ctr)
+        camera(sc, ctr + Vector((0.0, -1.0, 0.06)).normalized() * 6.6, ctr + Vector((0, 0, 0.0)), 50)
+        sc.render.filepath = os.path.join(RENDER_DIR, "char_%s_%s.png" % (cid, view))
+        t = time.time()
+        bpy.ops.render.render(write_still=True)
+        log("render", sc.render.filepath, "%.0fs" % (time.time() - t))
+
+
+def render_group(ids):
+    reset_scene()
+    sc = render_setup(128)
+    sky(sc)
+    setups = [("a", (-1.35, 0.15, 0), 18, "AimIdle", 0, "ar"), ("b", (-0.45, -0.25, 0), -8, "Idle", 40, "smg"),
+              ("c", (0.50, 0.05, 0), 10, "Idle", 100, "shotgun"), ("d", (1.40, 0.25, 0), -25, "AimIdle", 30, "sniper")]
+    rigs = []
+    for cid, off, rz, act, fr, gun in setups:
+        if cid in ids:
+            rigs.append(import_char(cid, off, rz, act, fr, gun))
+    set_frames(rigs)
+    camera(sc, (0.9, -6.4, 1.35), (0.0, 0.0, 0.95), 50)
+    sc.render.filepath = os.path.join(RENDER_DIR, "group.png")
+    bpy.ops.render.render(write_still=True)
+    log("render group")
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    flags = [a for a in sys.argv[1:] if a.startswith("-")]
+    ids = [a for a in args if a in CHAR_IDS] or CHAR_IDS
+    stats_path = os.path.join(OUT_DIR, "stats.json")
+    stats = {}
+    if os.path.exists(stats_path):
+        with open(stats_path) as fh:
+            stats = json.load(fh)
+    if "--render-only" not in flags:
+        for cid in ids:
+            stats["char_" + cid] = make_character(cid)
+            with open(stats_path, "w") as fh:
+                json.dump(stats, fh, indent=2)
+    if "--no-render" not in flags:
+        for cid in ids:
+            render_character(cid)
+        if "--no-group" not in flags:
+            render_group(CHAR_IDS)
+    log("done")
+
+
+if __name__ == "__main__":
+    main()

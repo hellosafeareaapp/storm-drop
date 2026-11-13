@@ -287,5 +287,103 @@
       "boot_L": 480,
       "boot_R": 480
     }
+  },
+  "char_d": {
+    "file": "models/characters/char_d.glb",
+    "bytes": 1745848,
+    "triangles": 11480,
+    "height_m": 1.838,
+    "feet_y": -0.013,
+    "bbox_min": [
+      -0.681,
+      -0.013,
+      -0.15
+    ],
+    "bbox_max": [
+      0.681,
+      1.826,
+      0.188
+    ],
+    "materials": [
+      "Skin",
+      "Hair",
+      "Fabric",
+      "Leather",
+      "Gear",
+      "Team"
+    ],
+    "bones": [
+      "Hips",
+      "Spine",
+      "Chest",
+      "Neck",
+      "Head",
+      "Shoulder.L",
+      "UpperArm.L",
+      "LowerArm.L",
+      "Hand.L",
+      "Shoulder.R",
+      "UpperArm.R",
+      "LowerArm.R",
+      "Hand.R",
+      "UpperLeg.L",
+      "LowerLeg.L",
+      "Foot.L",
+      "UpperLeg.R",
+      "LowerLeg.R",
+      "Foot.R"
+    ],
+    "animations": {
+      "Idle": 6,
+      "Walk": 1,
+      "Run": 0.7,
+      "Sprint": 0.6,
+      "StrafeLeft": 0.9,
+      "StrafeRight": 0.9,
+      "WalkBack": 1.1,
+      "CrouchIdle": 3,
+      "CrouchWalk": 1.1,
+      "Jump": 0.5,
+      "Fall": 0.8,
+      "Land": 0.5,
+      "Slide": 0.6,
+      "Vault": 0.8,
+      "Skydive": 1.6,
+      "Glide": 2,
+      "Death": 1.4,
+      "Swing": 0.8,
+      "AimIdle": 2
+    },
+    "texture_bytes": 699879,
+    "images": 18,
+    "aim_barrel_dir_gltf": [
+      -0.0,
+      -0.0,
+      1.0
+    ],
+    "aim_grip_pos_gltf": [
+      -0.125,
+      1.375,
+      0.37
+    ],
+    "name": "Vesper",
+    "jpeg_quality": 88,
+    "pieces": {
+      "head": 2000,
+      "jacket": 1900,
+      "jacket_rib": 250,
+      "pants": 1500,
+      "kneepads": 300,
+      "vest": 1300,
+      "belt": 250,
+      "gaiter": 500,
+      "hair": 900,
+      "headset": 600,
+      "armband_L": 180,
+      "hand_L": 420,
+      "hand_R": 420,
+      "boot_L": 480,
+      "boot_R": 480
+    }
   }
 }

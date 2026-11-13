@@ -322,7 +322,12 @@ def bone_axes(name):
     """Rest axes (X, Y, Z) of a bone: Y along the bone, X = flex hinge."""
     h, t, _ = SKEL[name]
     y = (t - h) / np.linalg.norm(t - h)
-    f = V(0, 0, 1) if name.startswith("Foot") else FRONT
+    if name.startswith("Foot"):
+        f = V(0, 0, 1)
+    elif "Leg" in name:
+        f = -FRONT          # knees flex backwards
+    else:
+        f = FRONT           # elbows (and the spine) flex forwards
     x = np.cross(y, f)
     x /= np.linalg.norm(x)
     z = np.cross(x, y)
@@ -991,3 +996,779 @@ def build_piece_object(pc):
     hi = len(o.data.polygons)
     decimate(o, pc.tris)
     return o, hi
+
+
+# ==========================================================================
+# Armature + skinning
+# ==========================================================================
+
+REST = {}   # bone name -> rest matrix (armature space)
+LEN = {}
+
+
+def create_armature():
+    arm = bpy.data.armatures.new("Rig")
+    ob = link(bpy.data.objects.new("Rig", arm))
+    bpy.context.view_layer.objects.active = ob
+    ob.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    for n in BONE_ORDER:
+        h, t, par = SKEL[n]
+        eb = arm.edit_bones.new(n)
+        eb.head = Vector(h)
+        eb.tail = Vector(t)
+        eb.align_roll(Vector(bone_axes(n)[2]))
+        if par:
+            eb.parent = arm.edit_bones[par]
+            eb.use_connect = False
+    bpy.ops.object.mode_set(mode="OBJECT")
+    for b in arm.bones:
+        REST[b.name] = b.matrix_local.copy()
+        LEN[b.name] = b.length
+    return ob
+
+
+def select_only(objs, active):
+    bpy.context.view_layer.update()
+    for o in bpy.context.scene.objects:
+        o.select_set(False)
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = active
+
+
+def make_proxy(body, P, rig):
+    """Closed whole-body mesh used only to compute automatic (heat) weights."""
+    f = U([body.whole(), head_sdf(P)], 0.02)
+    v, fa = sdf_mesh(f, 0.008)
+    o = mesh_object("proxy", v, fa)
+    keep_big_islands(o, 0.2)
+    decimate(o, 9000)
+    select_only([o, rig], rig)
+    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    names = {g.index: g.name for g in o.vertex_groups}
+    W = []
+    for vtx in o.data.vertices:
+        W.append({names[g.group]: g.weight for g in vtx.groups if g.weight > 1e-4})
+    empty = sum(1 for w in W if not w)
+    log("proxy weights: %d verts, %d unweighted" % (len(W), empty))
+    me = o.data
+    bvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+    return o, bvh, W
+
+
+RULES = {
+    "skinhead": {"Head", "Neck", "Chest"},
+    "neck": {"Head", "Neck", "Chest"},
+    "upper": {"Hips", "Spine", "Chest", "Neck", "Shoulder.L", "Shoulder.R", "UpperArm.L", "UpperArm.R",
+              "LowerArm.L", "LowerArm.R", "Hand.L", "Hand.R"},
+    "lower": {"Hips", "Spine", "UpperLeg.L", "UpperLeg.R", "LowerLeg.L", "LowerLeg.R", "Foot.L", "Foot.R"},
+    "chest": {"Chest", "Spine"},
+    "hips": {"Hips", "Spine"},
+    "knees": {"UpperLeg.L", "UpperLeg.R", "LowerLeg.L", "LowerLeg.R"},
+}
+RIGID = {"head": "Head", "handL": "Hand.L", "handR": "Hand.R", "pack": "Chest"}
+
+
+def bone_dist(p, n):
+    h = REST[n].translation
+    t = REST[n] @ Vector((0, LEN[n], 0))
+    ht = t - h
+    s = max(0.0, min(1.0, (p - h).dot(ht) / ht.length_squared))
+    return (p - (h + ht * s)).length
+
+
+def skin_piece(obj, rule, proxy):
+    _, bvh, W = proxy
+    pm = proxy[0].data
+    allowed = None
+    rigid = None
+    if rule in RIGID:
+        rigid = RIGID[rule]
+    elif rule in RULES:
+        allowed = RULES[rule]
+    elif rule.startswith("foot"):
+        allowed = {"Foot." + rule[-1], "LowerLeg." + rule[-1]}
+    elif rule.startswith("upperarm"):
+        allowed = {"UpperArm." + rule[-1], "Shoulder." + rule[-1]}
+    for n in BONE_ORDER:
+        obj.vertex_groups.new(name=n)
+    groups = {g.name: g for g in obj.vertex_groups}
+    for v in obj.data.vertices:
+        if rigid:
+            groups[rigid].add([v.index], 1.0, "REPLACE")
+            continue
+        loc, nrm, fi, dist = bvh.find_nearest(v.co)
+        poly = pm.polygons[fi]
+        pts = [pm.vertices[i].co for i in poly.vertices]
+        bc = poly_3d_calc(pts, loc)
+        w = {}
+        for i, b in zip(poly.vertices, bc):
+            for k, x in W[i].items():
+                w[k] = w.get(k, 0.0) + x * b
+        if allowed is not None:
+            w = {k: x for k, x in w.items() if k in allowed}
+        if rule == "knees":
+            sd = "L" if v.co.x > 0 else "R"
+            w = {k: x for k, x in w.items() if k.endswith(sd)}
+        w = {k: x for k, x in w.items() if x > 0.01}
+        if not w:
+            cand = allowed if allowed else set(BONE_ORDER)
+            w = {min(cand, key=lambda n: bone_dist(v.co, n)): 1.0}
+        top = sorted(w.items(), key=lambda kv: -kv[1])[:4]
+        tot = sum(x for _, x in top)
+        for k, x in top:
+            groups[k].add([v.index], x / tot, "REPLACE")
+
+
+# ==========================================================================
+# Pose solver: world-axis FK + analytic two-bone IK, baked to keyframes
+# ==========================================================================
+
+def R3(x=0.0, y=0.0, z=0.0, order="YXZ"):
+    return Euler((math.radians(x), math.radians(y), math.radians(z)), order).to_matrix()
+
+
+def T4(v):
+    return Matrix.Translation(Vector(v))
+
+
+def M4(R, t=(0, 0, 0)):
+    m = R.to_4x4()
+    m.translation = Vector(t)
+    return m
+
+
+def gun_frame(grip, yaw=0.0, pitch=0.0, roll=0.0):
+    """Gun frame (Blender axes: -Y barrel, +Z up). pitch>0 = muzzle down, yaw>0 = muzzle left."""
+    return M4(R3(z=yaw) @ R3(x=pitch) @ R3(y=roll), grip)
+
+
+def _gunmount_local():
+    a = GRIP_RAKE
+    R = Matrix(((-1, 0, 0), (0, -math.cos(a), math.sin(a)), (0, math.sin(a), math.cos(a)))).transposed()
+    return M4(R, (-GRIP_V, GRIP_U, 0.0))
+
+
+GUNMOUNT_LOCAL = _gunmount_local()      # gun frame in Hand.R bone space
+HANDGUARD = Vector((0.0, -0.215, 0.080))   # left-hand grip point, gun space
+_RLH = Matrix(((0, -1, 0), (0, 0, -1), (1, 0, 0)))
+
+
+def hand_from_gun(G):
+    return G @ GUNMOUNT_LOCAL.inverted()
+
+
+def lefthand_from_gun(G, hg=None):
+    hg = HANDGUARD if hg is None else hg
+    return G @ T4(hg) @ _RLH.to_4x4() @ T4((-GRIP_V, -GRIP_U, 0.0))
+
+
+def hand_from_grip(side, O, z, vhint):
+    """Hand bone matrix holding a cylinder at O whose axis (thumb side) is z;
+    vhint ~ direction from the palm to the cylinder."""
+    z = Vector(z).normalized()
+    v = Vector(vhint)
+    v = (v - z * v.dot(z)).normalized()
+    u = v.cross(z) if side == "R" else z.cross(v)
+    xh = -v if side == "R" else v
+    m = Matrix((xh, u, z)).transposed().to_4x4()
+    m.translation = Vector(O) - u * GRIP_U - v * GRIP_V
+    return m
+
+
+class Pose:
+    def __init__(self):
+        self.loc = Vector((0, 0, 0))
+        self.rot = {}
+        self.hand = {}    # side -> (matrix, rel bone or None, pole)
+        self.foot = {}    # side -> (ankle pos, pitch, yaw, pole)
+
+    def r(self, bone, x=0.0, y=0.0, z=0.0, order="YXZ"):
+        if bone.endswith(".R"):
+            y, z = -y, -z
+        self.rot[bone] = R3(x, y, z, order)
+        return self
+
+    def both(self, base, x=0.0, y=0.0, z=0.0, order="YXZ"):
+        self.r(base + ".L", x, y, z, order)
+        self.r(base + ".R", x, y, z, order)
+        return self
+
+    def rifle(self, G, rel="Chest", left=True, right=True):
+        for s in ("L", "R"):
+            if "Shoulder." + s not in self.rot:
+                self.r("Shoulder." + s, z=-12 if s == "L" else -6)
+        if right:
+            self.hand["R"] = (hand_from_gun(G), rel, Vector((-0.7, 0.4, -1.0)))
+        if left:
+            self.hand["L"] = (lefthand_from_gun(G), rel, Vector((0.5, 0.3, -1.0)))
+        return self
+
+    def feet(self, l, r, pitch_l=0.0, pitch_r=0.0, yaw_l=0.0, yaw_r=0.0):
+        self.foot["L"] = (Vector(l), pitch_l, yaw_l, None)
+        self.foot["R"] = (Vector(r), pitch_r, yaw_r, None)
+        return self
+
+
+ANKLE_L = Vector(SKEL["Foot.L"][0])
+ANKLE_R = Vector(SKEL["Foot.R"][0])
+IK_MISS = {}
+
+
+def two_bone(S, T, l1, l2, pole):
+    d = T - S
+    dist = d.length
+    dc = min(max(dist, abs(l1 - l2) + 1e-3), (l1 + l2) * 0.9995)
+    e = d.normalized()
+    p = pole - e * pole.dot(e)
+    if p.length < 1e-6:
+        p = Vector((0, 1, 0)) - e * e.y
+    p.normalize()
+    ca = (l1 * l1 + dc * dc - l2 * l2) / (2 * l1 * dc)
+    sa = math.sqrt(max(0.0, 1 - ca * ca))
+    E = S + (e * ca + p * sa) * l1
+    Tc = S + e * dc
+    d1 = (E - S).normalized()
+    d2 = (Tc - E).normalized()
+    X = d1.cross(d2)
+    if X.length < 1e-6:
+        X = d1.cross(-p)
+    X.normalize()
+    return E, d1, d2, X, max(0.0, dist - dc)
+
+
+def frame_m(X, Y, t):
+    Z = X.cross(Y).normalized()
+    X = Y.cross(Z).normalized()
+    m = Matrix((X, Y, Z)).transposed().to_4x4()
+    m.translation = t
+    return m
+
+
+def solve(pose, tag=""):
+    D, Mx = {}, {}
+    I = Matrix.Identity(4)
+
+    def fk(n):
+        rest = REST[n]
+        par = SKEL[n][2]
+        Dp = D[par] if par else I
+        L = I
+        if n in pose.rot:
+            h = rest.translation
+            L = T4(h) @ pose.rot[n].to_4x4() @ T4(-h)
+        if n == "Hips":
+            L = T4(pose.loc) @ L
+        D[n] = Dp @ L
+        Mx[n] = D[n] @ rest
+
+    for n in ("Hips", "Spine", "Chest", "Neck", "Head", "Shoulder.L", "Shoulder.R"):
+        fk(n)
+    for s in ("L", "R"):
+        up, lo, ha = "UpperArm." + s, "LowerArm." + s, "Hand." + s
+        if s in pose.hand:
+            Mt, rel, pole = pose.hand[s]
+            if rel:
+                Mt = D[rel] @ Mt
+            S = (D["Shoulder." + s] @ REST[up]).translation
+            E, d1, d2, X, miss = two_bone(S, Mt.translation, LEN[up], LEN[lo], pole)
+            IK_MISS[tag + ha] = max(IK_MISS.get(tag + ha, 0), miss)
+            Mx[up] = frame_m(X, d1, S)
+            Mx[lo] = frame_m(X, d2, E)
+            mh = Mt.copy()
+            mh.translation = E + d2 * LEN[lo]
+            Mx[ha] = mh
+            for n in (up, lo, ha):
+                D[n] = Mx[n] @ REST[n].inverted()
+        else:
+            for n in (up, lo, ha):
+                fk(n)
+    for s in ("L", "R"):
+        ul, ll, ft = "UpperLeg." + s, "LowerLeg." + s, "Foot." + s
+        if s in pose.foot:
+            pos, pitch, yaw, pole = pose.foot[s]
+            S = (D["Hips"] @ REST[ul]).translation
+            if pole is None:
+                hy = D["Hips"].to_3x3() @ Vector((0, -1, 0))
+                pole = (R3(z=yaw if s == "L" else -yaw) @ Vector((0, -1, 0))) + hy * 0.5 + Vector((0.15 if s == "L" else -0.15, 0, 0))
+            E, d1, d2, X, miss = two_bone(S, pos, LEN[ul], LEN[ll], pole)
+            IK_MISS[tag + ft] = max(IK_MISS.get(tag + ft, 0), miss)
+            Mx[ul] = frame_m(X, d1, S)
+            Mx[ll] = frame_m(X, d2, E)
+            rr = (R3(z=yaw if s == "L" else -yaw) @ R3(x=pitch)).to_4x4() @ REST[ft].to_3x3().to_4x4()
+            rr.translation = E + d2 * LEN[ll]
+            Mx[ft] = rr
+            for n in (ul, ll, ft):
+                D[n] = Mx[n] @ REST[n].inverted()
+        else:
+            for n in (ul, ll, ft):
+                fk(n)
+    out = {}
+    for n in BONE_ORDER:
+        par = SKEL[n][2]
+        base = (D[par] if par else I) @ REST[n]
+        out[n] = base.inverted() @ Mx[n]
+    return out, Mx
+
+
+def bake_action(rig, name, fn, duration, loop=True):
+    n = max(2, int(round(duration * FPS)))
+    frames = list(range(n + 1))
+    act = bpy.data.actions.new(name)
+    data = {b: {"q": [], "t": []} for b in BONE_ORDER}
+    prevq = {}
+    for f in frames:
+        t = (f / n) * duration
+        pose = fn(t if not loop else (t % duration))
+        basis, _ = solve(pose, name + ":")
+        for b in BONE_ORDER:
+            q = basis[b].to_quaternion()
+            if b in prevq and prevq[b].dot(q) < 0:
+                q.negate()
+            prevq[b] = q
+            data[b]["q"].append(q)
+            data[b]["t"].append(basis[b].translation)
+    for b in BONE_ORDER:
+        grp = act.groups.new(b)
+        chans = [("rotation_quaternion", 4, lambda k, i: data[b]["q"][k][i])]
+        if b == "Hips":
+            chans.append(("location", 3, lambda k, i: data[b]["t"][k][i]))
+        for path, cnt, get in chans:
+            for i in range(cnt):
+                fc = act.fcurves.new('pose.bones["%s"].%s' % (b, path), index=i, action_group=b)
+                fc.keyframe_points.add(len(frames))
+                co = []
+                for k, f in enumerate(frames):
+                    co += [float(f), float(get(k, i))]
+                fc.keyframe_points.foreach_set("co", co)
+                for kp in fc.keyframe_points:
+                    kp.interpolation = "LINEAR"
+                fc.update()
+    act.use_fake_user = True
+    act.use_frame_range = True
+    act.frame_start = 0
+    act.frame_end = n
+    act.use_cyclic = loop
+    tr = rig.animation_data.nla_tracks.new()
+    tr.name = name
+    st = tr.strips.new(name, 0, act)
+    st.extrapolation = "NOTHING"
+    tr.mute = True
+    return act
+
+
+# ==========================================================================
+# Animation library (all clips in place; the game moves the root)
+# ==========================================================================
+
+def sm(x):
+    x = max(0.0, min(1.0, x))
+    return x * x * (3 - 2 * x)
+
+
+def kf(t, keys):
+    """Smooth piecewise interpolation through (time, value) keys."""
+    if t <= keys[0][0]:
+        v = keys[0][1]
+    elif t >= keys[-1][0]:
+        v = keys[-1][1]
+    else:
+        for (t0, a), (t1, b) in zip(keys[:-1], keys[1:]):
+            if t0 <= t <= t1:
+                k = sm((t - t0) / (t1 - t0))
+                if isinstance(a, (tuple, list, Vector)):
+                    return Vector(a).lerp(Vector(b), k)
+                return a + (b - a) * k
+    return Vector(v) if isinstance(v, (tuple, list)) else v
+
+
+TAU = 2 * math.pi
+LOW_READY = gun_frame((-0.100, -0.270, 1.110), yaw=24, pitch=30)
+CARRY = gun_frame((-0.100, -0.265, 1.150), yaw=22, pitch=18)
+HIGH_PORT = gun_frame((-0.090, -0.250, 1.230), yaw=38, pitch=-40, roll=-10)
+AIM = gun_frame((-0.125, -0.370, 1.375), yaw=0, pitch=0)
+
+
+def ankle(side, x=None, y=0.0, z=0.0):
+    a = (ANKLE_L if side == "L" else ANKLE_R).copy()
+    if x is not None:
+        a.x = x if side == "L" else -x
+    a.y += y
+    a.z += z
+    return a
+
+
+def gait(t, period, stride, lift, stance, drop, bob, dirv=(0, -1, 0), width=0.115, sway=0.018,
+         lean=4.0, toe=28.0, heel=14.0, yaw=6.0, gun=CARRY, arm_bob=0.0):
+    p = Pose()
+    ph = (t / period) % 1.0
+    dv = Vector(dirv).normalized()
+    for s, off in (("L", 0.0), ("R", 0.5)):
+        q = (ph + off) % 1.0
+        if q < stance:
+            k = q / stance
+            a = 0.5 - k
+            h = 0.0
+            if k < 0.18:
+                pitch = -heel * (1 - k / 0.18)
+            elif k > 0.55:
+                pitch = toe * ((k - 0.55) / 0.45) ** 2
+            else:
+                pitch = 0.0
+        else:
+            k = (q - stance) / (1 - stance)
+            a = -0.5 + sm(k)
+            h = lift * math.sin(math.pi * k) ** 0.9
+            pitch = toe + (-heel - toe) * sm(k * 1.15)
+        pos = ankle(s, width) + dv * (a * stride)
+        pos.z += h
+        if pitch > 0:
+            pos.z += 0.125 * math.sin(math.radians(pitch))
+        else:
+            pos.z += 0.045 * math.sin(math.radians(-pitch))
+        p.foot[s] = (pos, pitch, 6.0, None)
+    c2 = math.cos(2 * TAU * ph)
+    p.loc = Vector((sway * math.sin(TAU * ph) * (1 if abs(dv.y) > 0.5 else 0.4), 0, -drop - bob * (0.5 + 0.5 * c2)))
+    sw = math.sin(TAU * ph)
+    p.r("Hips", x=lean * 0.25, z=yaw * sw)
+    p.r("Spine", x=lean * 0.35, z=-yaw * 0.6 * sw)
+    p.r("Chest", x=lean * 0.4 + arm_bob * c2, z=-yaw * 0.5 * sw)
+    p.r("Neck", x=-lean * 0.4)
+    p.r("Head", x=-lean * 0.4 - arm_bob * c2 * 0.8, z=yaw * 0.3 * sw)
+    if gun is not None:
+        p.rifle(gun)
+    return p
+
+
+def a_idle(t):
+    br = math.sin(TAU * t / 3.0)
+    sw = math.sin(TAU * t / 6.0)
+    p = Pose()
+    p.loc = Vector((0.012 * sw, 0.0, -0.018 - 0.004 * br))
+    p.r("Hips", y=-2 * sw, z=-4)
+    p.r("Spine", x=2 + 0.8 * br, z=2)
+    p.r("Chest", x=2 + 1.2 * br, z=2)
+    p.r("Neck", x=-1)
+    p.r("Head", x=-2 - 0.8 * br, z=4 + 3 * math.sin(TAU * t / 3.0 + 1))
+    p.feet(ankle("L", 0.135, -0.03), ankle("R", 0.120, 0.03), yaw_l=10, yaw_r=14)
+    p.foot["L"] = (p.foot["L"][0], 0.0, 10.0, None)
+    p.foot["R"] = (p.foot["R"][0], 0.0, 14.0, None)
+    p.r("Shoulder.L", z=0)
+    p.rifle(gun_frame((-0.100, -0.270, 1.110 + 0.004 * br), yaw=24, pitch=30))
+    return p
+
+
+def a_aim(t):
+    br = math.sin(TAU * t / 2.0)
+    p = Pose()
+    p.loc = Vector((0.0, 0.0, -0.035 - 0.003 * br))
+    p.r("Hips", z=-22)
+    p.r("Spine", x=4, z=-5)
+    p.r("Chest", x=6 + 0.6 * br, z=-6)
+    p.r("Neck", x=2, z=12)
+    p.r("Head", x=6, z=18, y=-6)
+    p.r("Shoulder.R", z=-6, y=4)
+    p.r("Shoulder.L", z=-4)
+    p.foot["L"] = (ankle("L", 0.15, -0.12), 0.0, -8.0, None)
+    p.foot["R"] = (ankle("R", 0.10, 0.12), 0.0, 40.0, None)
+    G = gun_frame((-0.125, -0.370, 1.375 + 0.002 * br), yaw=0, pitch=0)
+    p.rifle(G, rel=None)
+    return p
+
+
+def a_crouch_idle(t):
+    br = math.sin(TAU * t / 3.0)
+    p = Pose()
+    p.loc = Vector((0, 0.06, -0.36 - 0.004 * br))
+    p.r("Hips", x=10, z=-6)
+    p.r("Spine", x=10 + br, z=3)
+    p.r("Chest", x=8 + br, z=3)
+    p.r("Neck", x=-8)
+    p.r("Head", x=-12, z=4)
+    p.foot["L"] = (ankle("L", 0.15, -0.10), 0.0, 8.0, None)
+    p.foot["R"] = (ankle("R", 0.13, 0.12, 0.05), 32.0, 14.0, None)
+    p.rifle(gun_frame((-0.100, -0.280, 1.130), yaw=24, pitch=22))
+    return p
+
+
+def a_jump(t):
+    p = Pose()
+    # 0-0.12 crouch, 0.12-0.24 push off, then air tuck held
+    p.loc = Vector((0, 0, kf(t, [(0, -0.02), (0.12, -0.14), (0.24, 0.04), (0.45, 0.02)])))
+    lean = kf(t, [(0, 4), (0.12, 16), (0.24, 2), (0.45, 6)])
+    p.r("Hips", x=lean * 0.3)
+    p.r("Spine", x=lean * 0.4)
+    p.r("Chest", x=lean * 0.4)
+    p.r("Head", x=-lean * 0.6)
+    lz = kf(t, [(0, 0.0), (0.18, 0.0), (0.30, 0.10), (0.5, 0.30)])
+    rz = kf(t, [(0, 0.0), (0.20, 0.0), (0.32, 0.06), (0.5, 0.20)])
+    pl = kf(t, [(0, 0), (0.18, 0), (0.26, 40), (0.5, 20)])
+    pr = kf(t, [(0, 0), (0.20, 0), (0.28, 45), (0.5, 35)])
+    p.foot["L"] = (ankle("L", 0.13, kf(t, [(0, -0.02), (0.5, -0.12)]), lz), pl, 6.0, None)
+    p.foot["R"] = (ankle("R", 0.13, kf(t, [(0, 0.02), (0.5, 0.10)]), rz), pr, 6.0, None)
+    p.rifle(gun_frame((-0.100, -0.265, kf(t, [(0, 1.15), (0.12, 1.13), (0.3, 1.19), (0.5, 1.17)])), yaw=22, pitch=kf(t, [(0, 18), (0.3, 8), (0.5, 12)])))
+    return p
+
+
+def a_fall(t):
+    ph = TAU * t / 0.8
+    p = Pose()
+    p.loc = Vector((0, 0, 0.02))
+    p.r("Hips", x=-4 + 2 * math.sin(ph))
+    p.r("Spine", x=6)
+    p.r("Chest", x=4 + 2 * math.sin(ph + 1))
+    p.r("Head", x=-8)
+    p.foot["L"] = (ankle("L", 0.14, -0.10 + 0.05 * math.sin(ph), 0.16 + 0.04 * math.cos(ph)), 30 + 8 * math.sin(ph), 6.0, None)
+    p.foot["R"] = (ankle("R", 0.14, 0.08 - 0.05 * math.sin(ph), 0.12 - 0.04 * math.cos(ph)), 40 - 8 * math.sin(ph), 6.0, None)
+    p.rifle(gun_frame((-0.10, -0.26, 1.20 + 0.01 * math.sin(ph * 2)), yaw=24, pitch=-5 + 4 * math.sin(ph)))
+    return p
+
+
+def a_land(t):
+    p = Pose()
+    p.loc = Vector((0, 0.01, kf(t, [(0, -0.06), (0.1, -0.24), (0.32, -0.06), (0.5, -0.02)])))
+    lean = kf(t, [(0, 8), (0.1, 22), (0.32, 8), (0.5, 4)])
+    p.r("Hips", x=lean * 0.4)
+    p.r("Spine", x=lean * 0.35)
+    p.r("Chest", x=lean * 0.35)
+    p.r("Head", x=-lean * 0.6)
+    p.foot["L"] = (ankle("L", 0.14, -0.04), 0.0, 8.0, None)
+    p.foot["R"] = (ankle("R", 0.14, 0.04), 0.0, 8.0, None)
+    p.rifle(gun_frame((-0.100, -0.27, kf(t, [(0, 1.16), (0.1, 1.10), (0.5, 1.15)])), yaw=22, pitch=kf(t, [(0, 10), (0.1, 30), (0.5, 18)])))
+    return p
+
+
+def a_slide(t):
+    ph = TAU * t / 0.6
+    j = 0.004 * math.sin(ph * 2)
+    p = Pose()
+    p.loc = Vector((0, 0.10, -0.50 + j))
+    p.r("Hips", x=-22, z=-10)
+    p.r("Spine", x=8, z=4)
+    p.r("Chest", x=6, z=4)
+    p.r("Neck", x=4)
+    p.r("Head", x=10, z=6)
+    p.foot["L"] = (Vector((0.13, -0.56, 0.10 + j)), -25.0, 10.0, None)
+    p.foot["R"] = (Vector((-0.20, 0.02, 0.07 + j)), 10.0, 40.0, Vector((-1.0, -0.3, 0.2)))
+    p.rifle(gun_frame((-0.10, -0.30, 1.20), yaw=20, pitch=-5))
+    return p
+
+
+def a_vault(t):
+    p = Pose()
+    p.loc = Vector((kf(t, [(0, 0), (0.35, 0.10), (0.8, 0)]), 0, kf(t, [(0, -0.05), (0.12, -0.12), (0.32, 0.38), (0.55, 0.30), (0.72, -0.10), (0.8, -0.04)])))
+    lean = kf(t, [(0, 8), (0.15, 25), (0.35, 30), (0.6, 10), (0.8, 6)])
+    p.r("Hips", x=lean * 0.5, y=kf(t, [(0, 0), (0.35, -18), (0.65, 0)]), z=kf(t, [(0, 0), (0.35, -20), (0.7, 0)]))
+    p.r("Spine", x=lean * 0.3)
+    p.r("Chest", x=lean * 0.3, z=kf(t, [(0, 0), (0.35, 15), (0.7, 0)]))
+    p.r("Head", x=-lean * 0.6)
+    hl = kf(t, [(0, (0.22, -0.30, 1.05)), (0.15, (0.16, -0.42, 1.00)), (0.45, (0.16, -0.40, 1.00)), (0.6, (0.30, -0.20, 1.25)), (0.8, (0.22, -0.30, 1.10))])
+    p.hand["L"] = (hand_from_grip("L", hl, (0, -1, 0), (0, 0, -1)), None, Vector((0.6, 0.5, 0.0)))
+    p.rifle(gun_frame((-0.10, -0.24, 1.20), yaw=25, pitch=-20), left=False)
+    lk = kf(t, [(0, (0.12, -0.03, 0.088)), (0.15, (0.12, 0.0, 0.10)), (0.4, (-0.05, -0.10, 0.60)), (0.62, (0.05, -0.25, 0.40)), (0.8, (0.13, -0.05, 0.088))])
+    rk = kf(t, [(0, (-0.12, 0.03, 0.088)), (0.18, (-0.12, 0.05, 0.15)), (0.4, (-0.28, -0.05, 0.50)), (0.65, (-0.15, -0.10, 0.25)), (0.8, (-0.12, 0.04, 0.088))])
+    p.foot["L"] = (lk, kf(t, [(0, 0), (0.4, 30), (0.8, 0)]), 6.0, Vector((-0.6, -1, 0.3)))
+    p.foot["R"] = (rk, kf(t, [(0, 0), (0.4, 40), (0.8, 0)]), 6.0, Vector((-1.0, -0.5, 0.2)))
+    return p
+
+
+def a_skydive(t):
+    ph = TAU * t / 1.6
+    w = math.sin(ph)
+    p = Pose()
+    p.loc = Vector((0, 0, 0.0))
+    p.r("Hips", x=82 + 2 * w, y=2 * math.sin(ph * 0.5))
+    p.r("Spine", x=-10)
+    p.r("Chest", x=-8 + w)
+    p.r("Neck", x=-25)
+    p.r("Head", x=-28)
+    p.both("Shoulder", z=0, y=-8)
+    p.both("UpperArm", y=-55 + 3 * w, x=-55, z=0)
+    p.both("LowerArm", x=-70 + 4 * math.sin(ph + 1))
+    p.both("Hand", x=-10)
+    p.both("UpperLeg", y=-14, x=-10 + 2 * w)
+    p.both("LowerLeg", x=65 + 4 * math.sin(ph + 2))
+    p.both("Foot", x=30)
+    return p
+
+
+def a_glide(t):
+    ph = TAU * t / 2.0
+    w = math.sin(ph)
+    p = Pose()
+    p.loc = Vector((0, 0, 0))
+    p.r("Hips", x=-6 + 2 * w, y=2 * math.sin(ph * 0.5))
+    p.r("Spine", x=2)
+    p.r("Chest", x=-2)
+    p.r("Neck", x=-6)
+    p.r("Head", x=-10)
+    p.both("Shoulder", y=-14)
+    bar_z = 2.02 + 0.006 * w
+    for s, sx in (("L", 1), ("R", -1)):
+        O = Vector((0.23 * sx, -0.05, bar_z))
+        p.hand[s] = (hand_from_grip(s, O, (-sx, 0, 0), (0, -1, 0)), None, Vector((sx * 1.0, 0.4, -0.2)))
+    p.r("UpperLeg.L", x=-18 + 4 * w, y=-3)
+    p.r("UpperLeg.R", x=-8 - 4 * w, y=-3)
+    p.both("LowerLeg", x=25)
+    p.r("LowerLeg.R", x=35 + 5 * w)
+    p.both("Foot", x=25)
+    return p
+
+
+def a_death(t):
+    p = Pose()
+    fall = sm((t - 0.45) / 0.55)
+    p.loc = Vector((0, kf(t, [(0, 0), (0.2, 0.04), (0.45, 0.10), (1.0, 0.52)]),
+                    kf(t, [(0, 0), (0.2, -0.04), (0.45, -0.32), (1.0, -0.86), (1.12, -0.83), (1.4, -0.86)])))
+    p.r("Hips", x=kf(t, [(0, 0), (0.2, -6), (0.45, 10), (1.0, -86), (1.4, -88)]), z=kf(t, [(0, 0), (0.45, 18), (1.0, 25)]),
+        y=kf(t, [(0, 0), (0.5, 6), (1.0, 4)]))
+    p.r("Spine", x=kf(t, [(0, 0), (0.2, -12), (0.45, 12), (1.0, 2), (1.1, -6), (1.4, -2)]))
+    p.r("Chest", x=kf(t, [(0, 0), (0.2, -14), (0.45, 10), (1.0, 0), (1.4, -2)]), z=kf(t, [(0, 0), (0.45, -10), (1.4, -8)]))
+    p.r("Neck", x=kf(t, [(0, 0), (0.2, -20), (0.5, 15), (1.0, 0), (1.15, 15), (1.4, 8)]))
+    p.r("Head", x=kf(t, [(0, 0), (0.2, -20), (0.5, 10), (1.0, -5), (1.4, 0)]), z=kf(t, [(0, 0), (1.0, 35), (1.4, 40)]))
+    p.both("Shoulder", y=kf(t, [(0, 0), (0.3, -10), (1.4, -5)]))
+    p.r("UpperArm.L", y=kf(t, [(0, 40), (0.3, 10), (1.0, -40), (1.4, -45)]), x=kf(t, [(0, -10), (0.3, -40), (1.0, 20), (1.4, 10)]))
+    p.r("UpperArm.R", y=kf(t, [(0, 40), (0.3, 0), (1.0, -20), (1.4, -30)]), x=kf(t, [(0, -20), (0.3, -60), (1.0, -10), (1.4, 0)]))
+    p.r("LowerArm.L", x=kf(t, [(0, -30), (0.3, -60), (1.0, -20), (1.4, -35)]))
+    p.r("LowerArm.R", x=kf(t, [(0, -50), (0.3, -40), (1.0, -50), (1.4, -60)]))
+    p.r("UpperLeg.L", x=kf(t, [(0, 0), (0.45, -40), (1.0, -10), (1.4, -14)]), y=-6)
+    p.r("UpperLeg.R", x=kf(t, [(0, 0), (0.45, -10), (1.0, -32), (1.4, -38)]), y=-10)
+    p.r("LowerLeg.L", x=kf(t, [(0, 0), (0.45, 70), (1.0, 20), (1.4, 22)]))
+    p.r("LowerLeg.R", x=kf(t, [(0, 0), (0.45, 40), (1.0, 50), (1.4, 60)]))
+    p.both("Foot", x=kf(t, [(0, 0), (0.45, 20), (1.4, 35)]))
+    return p
+
+
+def a_swing(t):
+    p = Pose()
+    p.loc = Vector((0, 0, kf(t, [(0, -0.03), (0.25, -0.02), (0.42, -0.08), (0.8, -0.03)])))
+    p.r("Hips", z=kf(t, [(0, -6), (0.25, -18), (0.42, 12), (0.8, -6)]))
+    p.r("Spine", x=kf(t, [(0, 4), (0.25, -6), (0.42, 18), (0.8, 4)]), z=kf(t, [(0, 0), (0.25, -12), (0.42, 10), (0.8, 0)]))
+    p.r("Chest", x=kf(t, [(0, 4), (0.25, -6), (0.42, 14), (0.8, 4)]), z=kf(t, [(0, 0), (0.25, -12), (0.42, 10), (0.8, 0)]))
+    p.r("Head", x=kf(t, [(0, 0), (0.25, 4), (0.42, -18), (0.8, 0)]), z=kf(t, [(0, 6), (0.25, 22), (0.42, -12), (0.8, 6)]))
+    O = kf(t, [(0, (-0.20, -0.30, 1.10)), (0.25, (-0.24, 0.04, 1.66)), (0.34, (-0.18, -0.30, 1.58)), (0.42, (-0.10, -0.52, 1.05)),
+               (0.55, (-0.12, -0.45, 0.98)), (0.8, (-0.20, -0.30, 1.10))])
+    ax = kf(t, [(0, (0.0, -0.6, 1.0)), (0.25, (0.0, 0.8, 0.6)), (0.34, (0.0, -0.4, 1.0)), (0.42, (0.0, -1.0, -0.3)),
+                (0.55, (0.0, -0.9, -0.5)), (0.8, (0.0, -0.6, 1.0))])
+    p.hand["R"] = (hand_from_grip("R", O, ax, (1, 0, 0)), None, Vector((-1.0, 0.5, -0.6)))
+    p.r("UpperArm.L", y=kf(t, [(0, 45), (0.25, 30), (0.42, 50), (0.8, 45)]), x=kf(t, [(0, -20), (0.25, -55), (0.42, -10), (0.8, -20)]))
+    p.r("LowerArm.L", x=kf(t, [(0, -60), (0.25, -80), (0.42, -50), (0.8, -60)]))
+    p.foot["L"] = (ankle("L", 0.15, -0.14), 0.0, 0.0, None)
+    p.foot["R"] = (ankle("R", 0.12, 0.10), 0.0, 25.0, None)
+    return p
+
+
+ACTIONS = [
+    # name, function, duration (s), loops
+    ("Idle", a_idle, 6.0, True),
+    ("Walk", lambda t: gait(t, 1.0, 0.70, 0.11, 0.60, 0.035, 0.022), 1.0, True),
+    ("Run", lambda t: gait(t, 0.70, 1.00, 0.20, 0.36, 0.085, 0.045, lean=12, toe=40, heel=8, yaw=10, arm_bob=2.0), 0.70, True),
+    ("Sprint", lambda t: gait(t, 0.60, 1.15, 0.26, 0.30, 0.12, 0.05, lean=20, toe=50, heel=4, yaw=12, gun=HIGH_PORT, arm_bob=3.0), 0.60, True),
+    ("StrafeLeft", lambda t: gait(t, 0.90, 0.30, 0.09, 0.58, 0.04, 0.018, dirv=(1, 0, 0), width=0.15, lean=4, toe=18, heel=6, yaw=3), 0.90, True),
+    ("StrafeRight", lambda t: gait(t, 0.90, 0.30, 0.09, 0.58, 0.04, 0.018, dirv=(-1, 0, 0), width=0.15, lean=4, toe=18, heel=6, yaw=3), 0.90, True),
+    ("WalkBack", lambda t: gait(1.1 - t, 1.1, 0.55, 0.10, 0.60, 0.04, 0.018, lean=2, toe=22, heel=10, yaw=4), 1.1, True),
+    ("CrouchIdle", a_crouch_idle, 3.0, True),
+    ("CrouchWalk", lambda t: gait(t, 1.1, 0.55, 0.10, 0.62, 0.33, 0.018, width=0.15, lean=22, toe=25, heel=8, yaw=5,
+                                  gun=gun_frame((-0.10, -0.28, 1.13), yaw=24, pitch=22)), 1.1, True),
+    ("Jump", a_jump, 0.5, False),
+    ("Fall", a_fall, 0.8, True),
+    ("Land", a_land, 0.5, False),
+    ("Slide", a_slide, 0.6, True),
+    ("Vault", a_vault, 0.8, False),
+    ("Skydive", a_skydive, 1.6, True),
+    ("Glide", a_glide, 2.0, True),
+    ("Death", a_death, 1.4, False),
+    ("Swing", a_swing, 0.8, False),
+    ("AimIdle", a_aim, 2.0, True),
+]
+ACTION_NAMES = [a[0] for a in ACTIONS]
+
+
+def bake_all_actions(rig):
+    rig.animation_data_create()
+    IK_MISS.clear()
+    for name, fn, dur, loop in ACTIONS:
+        bake_action(rig, name, fn, dur, loop)
+    bad = {k: round(v, 3) for k, v in IK_MISS.items() if v > 0.02}
+    if bad:
+        log("IK targets out of reach (m):", bad)
+
+
+def add_gunmount(rig):
+    gm = link(bpy.data.objects.new("GunMount", None))
+    gm.empty_display_type = "ARROWS"
+    gm.empty_display_size = 0.08
+    gm.parent = rig
+    gm.parent_type = "BONE"
+    gm.parent_bone = "Hand.R"
+    bpy.context.view_layer.update()
+    gm.matrix_world = REST["Hand.R"] @ GUNMOUNT_LOCAL
+    return gm
+
+
+# ==========================================================================
+# Assembly
+# ==========================================================================
+
+MATERIALS = ["Skin", "Hair", "Fabric", "Leather", "Gear", "Team"]
+
+
+def set_piece_attrs(o, pc):
+    me = o.data
+    a = me.color_attributes.new("tint", "FLOAT_COLOR", "POINT")
+    n = len(me.vertices)
+    a.data.foreach_set("color", np.tile(np.array([*pc.tint, 1.0], dtype=np.float32), n))
+    b = me.attributes.new("pat", "FLOAT", "POINT")
+    b.data.foreach_set("value", np.full(n, float(pc.pat), dtype=np.float32))
+
+
+def build_character(cid):
+    P = designs()[cid]
+    body, pcs = build_pieces(cid, P)
+    rig = create_armature()
+    proxy = make_proxy(body, P, rig)
+    mats = {}
+    for m in MATERIALS:
+        mats[m] = bpy.data.materials.new(m)
+        mats[m].use_nodes = True
+    objs = []
+    stats = {}
+    for pc in pcs:
+        o, hi = build_piece_object(pc)
+        rule = pc.rule
+        if pc.name == "head":
+            rule = "skinhead"
+        elif pc.name.startswith("hand_"):
+            rule = "hand" + pc.name[-1]
+        elif pc.name in ("pack", "bag", "bedroll"):
+            rule = "pack"
+        skin_piece(o, rule, proxy)
+        set_piece_attrs(o, pc)
+        for m in MATERIALS:
+            o.data.materials.append(mats[m])
+        idx = MATERIALS.index(pc.mat)
+        o.data.polygons.foreach_set("material_index", np.full(len(o.data.polygons), idx, dtype=np.int32))
+        stats[pc.name] = len(o.data.polygons)
+        objs.append(o)
+    bpy.data.objects.remove(proxy[0])
+    select_only(objs, objs[0])
+    bpy.ops.object.join()
+    mesh = bpy.context.view_layer.objects.active
+    mesh.name = "Body_" + cid.upper()
+    mesh.data.name = mesh.name
+    # drop unused material slots
+    used = sorted(set(p.material_index for p in mesh.data.polygons))
+    for i in reversed(range(len(mesh.material_slots))):
+        if i not in used:
+            mesh.active_material_index = i
+            with bpy.context.temp_override(object=mesh):
+                bpy.ops.object.material_slot_remove()
+    log("char %s: %d tris in %d pieces" % (cid, len(mesh.data.polygons), len(pcs)))
+    return P, rig, mesh, stats
+
+
+def attach_mesh(rig, mesh):
+    mesh.parent = rig
+    md = mesh.modifiers.new("Armature", "ARMATURE")
+    md.object = rig

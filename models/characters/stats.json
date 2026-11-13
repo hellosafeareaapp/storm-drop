@@ -100,7 +100,7 @@
   },
   "char_b": {
     "file": "models/characters/char_b.glb",
-    "bytes": 1787084,
+    "bytes": 1866240,
     "triangles": 11150,
     "height_m": 1.827,
     "feet_y": -0.011,
@@ -164,7 +164,7 @@
       "Swing": 0.8,
       "AimIdle": 2
     },
-    "texture_bytes": 757482,
+    "texture_bytes": 828891,
     "images": 18,
     "aim_barrel_dir_gltf": [
       -0.0,

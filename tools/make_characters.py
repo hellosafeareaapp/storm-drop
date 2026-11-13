@@ -782,13 +782,15 @@ def build_pieces(cid, P):
         pcs.append(Piece("yoke", "Team", yoke, (0.85, 0.85, 0.85), tris=700, step=0.004, rule="upper"))
         pcs.append(Piece("pants", "Fabric", build_pants(body, 0.016), col("#2a2c2e"), PAT_RIP, tris=1500, step=0.006, rule="lower"))
         pcs.append(Piece("belt", "Leather", build_belt(body, 0.995, 0.020, 0.016), col("#4a3426"), PAT_PLAIN, tris=250, step=0.004, rule="hips"))
-        # light chest rig
+        # light chest rig, laid over the jacket surface
         t = body.torso
-        yf = surf_y(t, 0, 1.20)
-        rig = U([rbox((0, yf - 0.020, 1.205), (0.105, 0.022, 0.055), 0.014)] +
-                [chain([V(sx * 0.095, yf - 0.01, 1.24), V(sx * 0.095, -0.06, 1.46), V(sx * 0.08, 0.06, 1.48), V(sx * 0.10, surf_y(t, 0.1, 1.3, False) + 0.01, 1.20)],
-                       [0.012] * 4, 0.006) for sx in (1, -1)], 0.006)
-        rig = rig | (t.grow(0.010) & keep((0, 0, 1.18), (0, 0, -1)) & keep((0, 0, 1.15), (0, 0, 1)))
+        tj = body.upper().grow(0.016)
+        yf = surf_y(tj, 0, 1.20)
+        straps = tj.grow(0.007) & F(lambda p: np.abs(np.abs(p[:, 0]) - 0.092) - 0.014) & keep((0, 0, 1.16), (0, 0, 1)) & \
+            F(lambda p: np.abs(p[:, 0]) - 0.13)
+        rig = U([rbox((0, yf - 0.018, 1.205), (0.105, 0.024, 0.058), 0.014),
+                 rbox((-0.055, yf - 0.042, 1.215), (0.026, 0.012, 0.040), 0.008)], 0.006)
+        rig = rig | straps | (body.torso.grow(0.026) & keep((0, 0, 1.18), (0, 0, -1)) & keep((0, 0, 1.15), (0, 0, 1)))
         pcs.append(Piece("chestrig", "Gear", rig, col("#6e6250"), PAT_WEBBING, tris=900, step=0.004, rule="chest"))
         yb = surf_y(t, -0.05, 1.10, front=False)
         bag = rbox((-0.060, yb + 0.040, 1.080), (0.090, 0.038, 0.070), 0.03, frame(x=(1, 0, 0.35), y=(0, 1, 0)))

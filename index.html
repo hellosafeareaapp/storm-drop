@@ -425,6 +425,42 @@ function basic(color, opacity) {
   return _mats[key] || (_mats[key] = new THREE.MeshBasicMaterial({ color: lin(color), transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
 }
 
+/* ---------------------------------------------------------------------
+   Blender map models (models/map/*.glb, made by tools/make_map.py).
+   The game builds its simple box world first (that's also the collision),
+   then swaps each piece for its photo-real model as it finishes loading.
+   They're fetched from models/map/, so they need the page to be served
+   (GitHub Pages or a local server); opened straight from disk, the box
+   world stays.
+   --------------------------------------------------------------------- */
+const mapPlacements = [];
+function placeModel(name, x, y, z, rotY, scale, hide, parent) { mapPlacements.push({ name, x, y, z, rotY, scale: scale || 1, hide: hide || [], parent }); }
+function trackBuild(fn) { const start = scene.children.length; fn(); return scene.children.slice(start).filter(o => o.isMesh || o.isGroup); }
+function loadMapModels() {
+  if (!THREE.GLTFLoader || location.protocol === 'file:') return;
+  const loader = new THREE.GLTFLoader();
+  for (const name of [...new Set(mapPlacements.map(m => m.name))]) {
+    loader.load('models/map/' + name + '.glb', gltf => {
+      gltf.scene.traverse(o => {
+        if (!o.isMesh) return;
+        o.castShadow = true; o.receiveShadow = true;
+        const m = o.material;
+        if (m && m.alphaTest > 0) { // leaf cards: cut-out shadows too
+          m.side = THREE.DoubleSide;
+          o.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: m.map, alphaTest: m.alphaTest });
+        }
+      });
+      for (const pl of mapPlacements) {
+        if (pl.name !== name) continue;
+        const c = gltf.scene.clone(true);
+        c.position.set(pl.x, pl.y, pl.z); c.rotation.y = pl.rotY; c.scale.setScalar(pl.scale);
+        (pl.parent || scene).add(c);
+        for (const h of pl.hide) h.visible = false;
+      }
+    }, undefined, err => console.warn('Map model failed to load:', name, err));
+  }
+}
+
 /* =====================================================================
    4. MAP — terrain, water, named areas, trees, rocks, chests
    ===================================================================== */
@@ -528,7 +564,12 @@ function buildTerrain() {
 
 /* A small house: floor, 4 walls (door on local +z), windows, ceiling and a pyramid roof. */
 const HOUSE_ROOF = new THREE.ConeGeometry(6.3, 2.8, 4); HOUSE_ROOF.rotateY(Math.PI / 4);
+let _houseVariant = 0;
 function buildHouse(cx, cz, rot, wallC, roofC) {
+  const hide = trackBuild(() => buildHouseBoxes(cx, cz, rot, wallC, roofC));
+  placeModel(['house_a', 'house_b', 'house_c'][_houseVariant++ % 3], cx, terrainHeight(cx, cz) - 0.25, cz, rot * Math.PI / 2, 1, hide);
+}
+function buildHouseBoxes(cx, cz, rot, wallC, roofC) {
   const gy = terrainHeight(cx, cz) - 0.25, B = localFrame(cx, cz, rot);
   const W = 8, H = 4.2, T = 0.35, fy = gy + 0.35;
   B(0, gy, 0, W, 0.35, W, 0xd9b48a);                           // floor
@@ -555,14 +596,27 @@ function buildVillage(a) {
   homes.forEach((h, i) => buildHouse(a.x + h[0], a.z + h[1], h[2], walls[i], roofs[i]));
   // well in the plaza
   const y = terrainHeight(a.x, a.z);
+  const wellStart = scene.children.length;
   const well = new THREE.Mesh(CYL, mat(0x9aa5b1)); well.scale.set(1.3, 1.1, 1.3); well.position.set(a.x, y + 0.55, a.z); well.castShadow = true; scene.add(well);
   addSolid(a.x - 1.3, y, a.z - 1.3, a.x + 1.3, y + 1.1, a.z + 1.3, 'static');
   sbox(a.x - 1.1, y + 1.1, a.z, 0.2, 1.8, 0.2, 0x8d5524, false); sbox(a.x + 1.1, y + 1.1, a.z, 0.2, 1.8, 0.2, 0x8d5524, false);
   sbox(a.x, y + 2.9, a.z, 3, 0.25, 1.8, 0xc92a2a, false);
+  placeModel('well', a.x, y, a.z, 0, 1, scene.children.slice(wellStart).filter(o => o.isMesh));
   lootSpots.push({ x: a.x + 3, y, z: a.z + 2 }, { x: a.x - 3, y, z: a.z - 2 });
 }
 
 function buildWarehouse(a) {
+  const hide = trackBuild(() => buildWarehouseBoxes(a));
+  const gy = terrainHeight(a.x, a.z) - 0.2, fy = gy + 0.3;
+  placeModel('warehouse', a.x, gy, a.z, 0, 1, hide);
+  for (const c of [[-9, -4, 1], [-9, -1.8, 1], [-9, -4, 2], [8, 3, 1], [10.2, 3, 1], [8, 3, 2], [-2, -5, 1], [3, 5, 1]]) placeModel('crate', a.x + c[0], fy + (c[2] - 1) * 2, a.z + c[1], 0, 1);
+  const ty = terrainHeight(a.x - 20, a.z), ty2 = terrainHeight(a.x + 20, a.z - 6);
+  placeModel('container_red', a.x - 19.5, ty - 0.2, a.z, 0, 1);
+  placeModel('container_blue', a.x - 23, ty - 0.2, a.z + 2, 0, 1);
+  placeModel('container_green', a.x - 21.2, ty + 3.0, a.z + 1, 0, 1);
+  placeModel('container_orange', a.x + 19.5, ty2 - 0.2, a.z - 6, 0, 1);
+}
+function buildWarehouseBoxes(a) {
   const gy = terrainHeight(a.x, a.z) - 0.2, W = 28, D = 18, H = 9, T = 0.6, fy = gy + 0.3;
   const wall = 0x868e96, trim = 0xf59f00;
   sbox(a.x, gy, a.z, W, 0.3, D, 0xadb5bd);
@@ -595,6 +649,7 @@ function buildWarehouse(a) {
 function buildFarm(a) {
   // red barn with a triangular roof
   const bx = a.x - 8, bz = a.z - 6, gy = terrainHeight(bx, bz) - 0.2, W = 12, D = 10, H = 6, T = 0.4, fy = gy + 0.3, red = 0xe03131;
+  const barnStart = scene.children.length;
   sbox(bx, gy, bz, W, 0.3, D, 0xc9a26b);
   sbox(bx, fy, bz - D / 2 + T / 2, W, H, T, red);
   sbox(bx - W / 2 + T / 2, fy, bz, T, H, D - 2 * T, red);
@@ -611,6 +666,7 @@ function buildFarm(a) {
   prism.rotation.set(-Math.PI / 2, 0, 0); prism.castShadow = true;
   const holder = new THREE.Group(); holder.add(prism); holder.scale.set(1.75, 0.75, 1); holder.position.y = 1.5;
   roofG.add(holder);
+  placeModel('barn', bx, gy, bz, 0, 1, scene.children.slice(barnStart).filter(o => o.isMesh || o.isGroup));
   for (let i = 0; i < 3; i++) sbox(bx - 3 + i * 3, fy, bz - 2, 1.6, 1.2, 1.2, 0xffd43b); // hay inside
   chestSpots.push({ x: bx + 4, y: fy, z: bz - 3, rot: 0 });
   lootSpots.push({ x: bx - 3, y: fy, z: bz + 2 }, { x: bx + 2, y: fy, z: bz + 1 });
@@ -618,6 +674,7 @@ function buildFarm(a) {
   const sx = a.x + 4, sz = a.z - 12, sy = terrainHeight(sx, sz);
   const silo = new THREE.Mesh(CYL, mat(0xdee2e6)); silo.scale.set(2.3, 11, 2.3); silo.position.set(sx, sy + 5.5, sz); silo.castShadow = true; scene.add(silo);
   const dome = new THREE.Mesh(new THREE.SphereGeometry(2.3, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x1c7ed6)); dome.position.set(sx, sy + 11, sz); scene.add(dome);
+  placeModel('silo', sx, sy, sz, 0, 1, [silo, dome]);
   addSolid(sx - 2.3, sy, sz - 2.3, sx + 2.3, sy + 13, sz + 2.3, 'static');
   // farmhouse
   buildHouse(a.x + 14, a.z - 8, 3, 0xfff3bf, 0x2b8a3e);
@@ -630,13 +687,15 @@ function buildFarm(a) {
   for (const h of [[-14, 6], [-12, 8.5], [16, 2]]) {
     const hx = a.x + h[0], hz = a.z + h[1], hy = terrainHeight(hx, hz);
     const bale = new THREE.Mesh(CYL, mat(0xffd43b)); bale.scale.set(0.9, 1.6, 0.9); bale.rotation.z = Math.PI / 2; bale.position.set(hx, hy + 0.9, hz); bale.castShadow = true; scene.add(bale);
+    placeModel('hay_bale', hx, hy, hz, 0, 1, [bale]);
     addSolid(hx - 0.8, hy, hz - 0.9, hx + 0.8, hy + 1.8, hz + 0.9, 'static');
   }
-  const tx = a.x + 14, tz = a.z + 4, ty = terrainHeight(tx, tz);
+  const tx = a.x + 14, tz = a.z + 4, ty = terrainHeight(tx, tz), tractorStart = scene.children.length;
   sbox(tx, ty + 0.6, tz, 2.2, 1.2, 3.4, 0x2f9e44); sbox(tx, ty + 1.8, tz - 0.6, 1.8, 1.3, 1.6, 0x2f9e44, false);
   for (const w of [[-1.2, -1, 1.1], [1.2, -1, 1.1], [-1.2, 1.2, 0.7], [1.2, 1.2, 0.7]]) {
     const wh = new THREE.Mesh(CYL, mat(0x212529)); wh.scale.set(w[2], 0.5, w[2]); wh.rotation.z = Math.PI / 2; wh.position.set(tx + w[0], ty + w[2], tz + w[1]); scene.add(wh);
   }
+  placeModel('tractor', tx, ty, tz, 0, 1, scene.children.slice(tractorStart).filter(o => o.isMesh));
   lootSpots.push({ x: a.x + 8, y: terrainHeight(a.x + 8, a.z + 2), z: a.z + 2 });
 }
 
@@ -646,6 +705,7 @@ function addRock(x, z, s, color) {
   const m = new THREE.Mesh(ROCK_GEO, mat(color || pick([0x9aa5b1, 0x868e96, 0xadb5bd])));
   m.scale.set(s * rand(0.9, 1.3), s * rand(0.7, 1), s * rand(0.9, 1.3)); m.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3));
   m.position.set(x, y + s * 0.35, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  placeModel(pick(['rock_a', 'rock_b', 'rock_c', 'rock_d']), x, y - 0.25 * s, z, rand(0, 6.28), s * 1.15, [m]);
   addSolid(x - s * 0.8, y - 1, z - s * 0.8, x + s * 0.8, y + s * 1.1, z + s * 0.8, 'static', m);
 }
 
@@ -674,6 +734,7 @@ function addTree(x, z) {
     const c = pick([0x69db7c, 0x51cf66, 0x8ce99a, 0xffa94d, 0xf783ac, 0x51cf66]);
     const a = new THREE.Mesh(ROUND_GEO, mat(c)); a.scale.setScalar(s); a.position.y = 3 * s + 1.5 * s; a.rotation.set(rand(0, 3), rand(0, 3), 0); a.castShadow = true; g.add(a);
   }
+  placeModel(g.children.length > 2 ? pick(['tree_pine_a', 'tree_pine_b']) : pick(['tree_oak', 'tree_birch']), 0, 0, 0, 0, s * 0.9, g.children.slice(), g);
   const t = { group: g, x, y, z, s, hp: 100, alive: true, shake: 0, solid: null };
   t.solid = addSolid(x - 0.5, y, z - 0.5, x + 0.5, y + 6 * s, z + 0.5, 'tree', t);
   trees.push(t);
@@ -2247,6 +2308,7 @@ window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeig
 buildMap();
 drawMapBackground();
 loadGunModels();
+loadMapModels();
 requestAnimationFrame(loop);
 </script>
 </body>

@@ -1,7 +1,7 @@
 {
   "char_a": {
     "file": "models/characters/char_a.glb",
-    "bytes": 1621716,
+    "bytes": 1904432,
     "triangles": 12208,
     "height_m": 1.857,
     "feet_y": -0.013,
@@ -65,7 +65,7 @@
       "Swing": 0.8,
       "AimIdle": 2
     },
-    "texture_bytes": 544406,
+    "texture_bytes": 816079,
     "images": 18,
     "aim_barrel_dir_gltf": [
       -0.0,
@@ -82,14 +82,14 @@
     "pieces": {
       "head": 2000,
       "jacket": 2000,
-      "pants": 1500,
+      "pants": 1498,
       "vest": 1500,
       "pack": 700,
       "belt": 300,
       "helmet": 900,
       "helmet_band": 300,
       "chinstrap": 150,
-      "hair": 698,
+      "hair": 700,
       "armband_L": 180,
       "armband_R": 180,
       "hand_L": 420,

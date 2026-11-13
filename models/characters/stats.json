@@ -196,14 +196,14 @@
   },
   "char_c": {
     "file": "models/characters/char_c.glb",
-    "bytes": 1694508,
+    "bytes": 1700448,
     "triangles": 10300,
     "height_m": 1.829,
     "feet_y": -0.013,
     "bbox_min": [
       -0.681,
       -0.013,
-      -0.354
+      -0.371
     ],
     "bbox_max": [
       0.681,
@@ -260,7 +260,7 @@
       "Swing": 0.8,
       "AimIdle": 2
     },
-    "texture_bytes": 727938,
+    "texture_bytes": 735916,
     "images": 18,
     "aim_barrel_dir_gltf": [
       -0.0,
@@ -290,7 +290,7 @@
   },
   "char_d": {
     "file": "models/characters/char_d.glb",
-    "bytes": 1745848,
+    "bytes": 1742656,
     "triangles": 11480,
     "height_m": 1.838,
     "feet_y": -0.013,
@@ -354,7 +354,7 @@
       "Swing": 0.8,
       "AimIdle": 2
     },
-    "texture_bytes": 699879,
+    "texture_bytes": 699549,
     "images": 18,
     "aim_barrel_dir_gltf": [
       -0.0,

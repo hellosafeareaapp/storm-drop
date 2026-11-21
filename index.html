@@ -144,7 +144,7 @@
   <div id="hotbarWrap">
     <div id="ammoInfo"></div>
     <div id="hotbar"></div>
-    <div id="pickHint">F: pickaxe &nbsp; Q: build</div>
+    <div id="pickHint">F: pickaxe &nbsp; Q: build &nbsp; V: view</div>
   </div>
 </div>
 
@@ -167,6 +167,7 @@
       <span class="k">E</span><span>Open chests, pick up loot</span>
       <span class="k">R</span><span>Reload</span>
       <span class="k">Q</span><span>Toggle build mode</span>
+      <span class="k">V</span><span>Switch first / third person</span>
     </div>
     <div class="note">Tip: use C to crouch if Ctrl+W/Ctrl+S shortcuts get in the way. Esc pauses.</div>
   </div>
@@ -1566,6 +1567,8 @@ function fireWeapon(e, it, def) {
   e.fireCd = def.rate; it.mag--;
   const muzzleObj = e.model.held && e.model.held.userData.muzzle;
   if (muzzleObj) muzzleObj.getWorldPosition(_mz); else chestPoint(e, _mz);
+  if (e === player && view.fp && fpMuzzle(_v4)) _mz.copy(_v4);
+  if (e === player) vm.kick = Math.min(1, vm.kick + 0.35 + def.recoil * 6);
   const ads = e === player && input.aim;
   const moving = Math.hypot(e.vel.x, e.vel.z) > 1;
   let spread = ads ? def.ads : def.spread * (moving ? 1.35 : 1) * (e.crouch ? 0.7 : 1) * (e.grounded ? 1 : 1.6);
@@ -2281,10 +2284,12 @@ function updateCamera(dt) {
     p.bobT = (p.bobT || 0) + (onFoot ? hsC * dt * 1.55 : 0);
     const bob = onFoot ? Math.sin(p.bobT * 2) * 0.05 * clamp(hsC / 7, 0, 1) * (input.aim ? 0.3 : 1) : 0;
     p.camDip = Math.max(0, (p.camDip || 0) - dt * 1.6);
-    pivot = _v1.set(p.pos.x, p.pos.y + (p.crouch ? 1.25 : 1.7) + bob - p.camDip, p.pos.z);
+    const fpNow = view.fp && p.alive && p.state === 'ground';
+    pivot = _v1.set(p.pos.x, p.pos.y + (fpNow ? (p.crouch ? 1.12 : 1.62) : (p.crouch ? 1.25 : 1.7)) + bob - p.camDip, p.pos.z);
     if (!p.alive) { dist = 7; side = 0; }
     else if (p.state !== 'ground') { dist = 7; side = 0.4; }
     else if (scoped) { dist = 0; side = 0; fov = 16; }
+    else if (fpNow) { dist = 0; side = 0; fov = ads ? 58 : p.slideT > 0 ? 90 : input.sprint && hsC > 7 ? 86 : 80; }
     else if (ads) { dist = 2.3; side = 0.75; fov = 52; }
     else { dist = 4.3; side = 0.95; fov = p.slideT > 0 ? 82 : input.sprint && Math.hypot(p.vel.x, p.vel.z) > 7 ? 78 : 72; }
   }
@@ -2305,8 +2310,86 @@ function updateCamera(dt) {
   camLook.set(camPos.x + fx * 10, camPos.y + fy * 10, camPos.z + fz * 10);
   camera.lookAt(camLook);
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = lerp(camera.fov, fov, Math.min(1, dt * 14)); camera.updateProjectionMatrix(); }
-  player.model.group.visible = p.state !== 'bus' && !(scoped) && (p.alive || p.deathT < 2.2);
+  player.model.group.visible = p.state !== 'bus' && !(scoped) && !(view.fp && p.alive && p.state === 'ground') && (p.alive || p.deathT < 2.2);
   return scoped;
+}
+
+/* ---------------------------------------------------------------------
+   First-person view model: the gun in your hands, drawn in its own pass
+   after the world (depth cleared) so it never clips into walls.
+   Hip-fire / aim-down-sights blend, mouse sway, walk bob, recoil kick,
+   reload dip, sprint tilt, pickaxe swing and a raise when you switch.
+   --------------------------------------------------------------------- */
+const view = { fp: true };
+const vmScene = new THREE.Scene();
+const vmCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 10);
+vmScene.environment = scene.environment;
+vmScene.add(new THREE.HemisphereLight(lin(0xcfe2ff), lin(0x59633f), 0.8));
+const vmSun = new THREE.DirectionalLight(lin(0xfff0d8), 2.6); vmScene.add(vmSun, vmSun.target);
+const vmRoot = new THREE.Group(); vmScene.add(vmRoot); vmRoot.visible = false;
+const vmHold = new THREE.Group(); vmHold.rotation.y = Math.PI; vmRoot.add(vmHold); // barrel (+Z) points away from the eye
+const vm = { key: '', held: null, swayX: 0, swayY: 0, lastYaw: 0, lastPitch: 0, kick: 0, ads: 0, reload: 0, sprint: 0, equipT: 0 };
+const VM_GLOVE = mat(0x26272b, { roughness: 0.85 }), VM_SLEEVE = mat(0x4b5a3c, { roughness: 0.95 });
+function vmArm(x, y, z, ry) { // gloved hand with a sleeve running back toward the camera
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry;
+  const hand = new THREE.Mesh(BOX, VM_GLOVE); hand.scale.set(0.075, 0.085, 0.11); g.add(hand);
+  const sleeve = new THREE.Mesh(BOX, VM_SLEEVE); sleeve.scale.set(0.1, 0.1, 0.5); sleeve.position.set(0, -0.01, -0.3); g.add(sleeve);
+  return g;
+}
+const VM_HIP = new THREE.Vector3(0.19, -0.2, -0.36), VM_ADS = new THREE.Vector3(0, -0.128, -0.3);
+function vmSetItem(it) {
+  if (vm.held) vmHold.remove(vm.held);
+  const g = new THREE.Group();
+  if (!it) { // pickaxe held upright in the right hand
+    const pk = makePickaxeModel(); pk.rotation.set(0.2, 0, 0); pk.position.set(0, -0.05, 0); pk.scale.setScalar(0.8); g.add(pk);
+    g.add(vmArm(0, -0.05, 0, 0));
+  } else if (it.kind === 'weapon') {
+    const gun = makeGunModel(it.type, it.rarity); gun.scale.setScalar(0.75); g.add(gun);
+    const fore = it.type === 'smg' ? 0.2 : it.type === 'rocket' ? 0.3 : 0.34;
+    g.add(vmArm(0, -0.06, -0.01, 0), vmArm(0.01, -0.05, fore, -0.35));
+    g.userData.muzzle = gun.userData.muzzle;
+  } else { const h = makeHealModel(it.type); h.scale.setScalar(0.9); h.position.set(0, 0.02, 0.05); g.add(h, vmArm(0, -0.06, 0, 0)); }
+  vmHold.add(g); vm.held = g; vm.equipT = 0.3;
+}
+function updateViewmodel(dt, scoped) {
+  const p = player, it = p.item;
+  const show = view.fp && game.state !== 'menu' && p.state === 'ground' && p.alive && !build.on && !scoped && !p.mantle;
+  vmRoot.visible = show;
+  vm.lastYaw = vm.lastYaw || p.yaw;
+  let dYaw = p.yaw - vm.lastYaw; dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
+  const dPitch = p.pitch - vm.lastPitch; vm.lastYaw = p.yaw; vm.lastPitch = p.pitch;
+  if (!show) return;
+  const key = it ? (it.kind === 'weapon' ? it.type + it.rarity : 'heal' + it.type) : 'pickaxe';
+  if (key !== vm.key) { vmSetItem(it); vm.key = key; }
+  const k = t => Math.min(1, dt * t);
+  const ads = input.aim && it && it.kind === 'weapon';
+  const hs = Math.hypot(p.vel.x, p.vel.z), sprinting = input.sprint && hs > 7 && !ads && p.fireCd < -0.2;
+  vm.ads = lerp(vm.ads, ads ? 1 : 0, k(14));
+  vm.reload = lerp(vm.reload, p.reloadT > 0 ? 1 : 0, k(10));
+  vm.sprint = lerp(vm.sprint, sprinting || p.slideT > 0 ? 1 : 0, k(8));
+  vm.swayX = lerp(vm.swayX, clamp(-dYaw * 1.6, -0.06, 0.06), k(9));
+  vm.swayY = lerp(vm.swayY, clamp(dPitch * 1.6, -0.05, 0.05), k(9));
+  vm.kick = Math.max(0, vm.kick - dt * 7);
+  vm.equipT = Math.max(0, vm.equipT - dt);
+  const onFoot = p.grounded && p.slideT <= 0, amp = onFoot ? clamp(hs / 7, 0, 1) * (1 - vm.ads * 0.85) : 0;
+  const bx = Math.sin(p.bobT || 0) * 0.014 * amp, by = -Math.abs(Math.cos(p.bobT || 0)) * 0.012 * amp;
+  vmRoot.position.lerpVectors(VM_HIP, VM_ADS, smooth(vm.ads));
+  vmRoot.position.x += vm.swayX * (1 - vm.ads * 0.7) + bx;
+  vmRoot.position.y += vm.swayY * (1 - vm.ads * 0.7) + by - vm.reload * 0.1 - vm.equipT * 0.5 - vm.sprint * 0.05 + (p.grounded ? 0 : 0.02) - (p.camDip || 0) * 0.15;
+  vmRoot.position.z += vm.kick * 0.07;
+  let rx = vm.kick * 0.1 + vm.reload * 0.55 - vm.sprint * 0.25, ry = vm.swayX * 2 + vm.sprint * 0.55, rz = vm.reload * 0.35 + vm.sprint * 0.3;
+  if (!it && p.swingT > 0) rx -= Math.sin((p.swingT / 0.42) * Math.PI) * 1.3; // pickaxe chop
+  vmRoot.rotation.set(rx, ry, rz);
+  vmSun.position.copy(SUN_DIR).applyQuaternion(_vmQ.copy(camera.quaternion).invert()).multiplyScalar(5);
+}
+const _vmQ = new THREE.Quaternion();
+/* Where shots appear to come from in first person (the view model's muzzle, in world space) */
+function fpMuzzle(out) {
+  const mz = vm.held && vm.held.userData.muzzle;
+  if (!mz || !vmRoot.visible) return false;
+  vmRoot.updateMatrixWorld(true); mz.getWorldPosition(out);
+  camera.updateMatrixWorld(); camera.localToWorld(out);
+  return true;
 }
 
 /* =====================================================================
@@ -2493,6 +2576,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyQ') { build.on = !build.on; if (build.on) p.healing = null; }
   if (e.code === 'KeyF') { p.pickaxe = true; build.on = false; p.reloadT = 0; p.healing = null; }
   if (e.code === 'KeyR' && !build.on) startReload(p);
+  if (e.code === 'KeyV') { view.fp = !view.fp; showBanner(view.fp ? 'First-person view' : 'Third-person view', 1); }
   if (e.code === 'KeyE' && p.state === 'ground' && p.alive) interact(p, nearestInteract(p, 2.6));
 });
 document.addEventListener('keyup', e => { input.keys[e.code] = false; });
@@ -2642,6 +2726,7 @@ function updateGame(dt) {
   updateFx(dt);
   for (const c of clouds) { c.position.x += dt * 2; if (c.position.x > 240) c.position.x = -240; }
   const scoped = updateCamera(dt);
+  updateViewmodel(dt, scoped);
   focusShadow(player.state === 'bus' ? camLook : player.pos);
   // storm fog and hum
   const out = player.state !== 'bus' && player.alive && inStorm(player);
@@ -2666,8 +2751,9 @@ function loop(now) {
   TEX.waterN.offset.set(time * 0.012, time * 0.007); // drifting ripples
   grassTime.value = time;                            // wind in the grass
   renderer.render(scene, camera);
+  if (vmRoot.visible) { renderer.autoClear = false; renderer.clearDepth(); renderer.render(vmScene, vmCam); renderer.autoClear = true; }
 }
-window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); vmCam.aspect = camera.aspect; vmCam.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 buildMap();
 drawMapBackground();

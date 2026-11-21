@@ -260,10 +260,10 @@ const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vect
 /* Weapon definitions. dmg is per bullet (per pellet for the shotgun). */
 const WEAPONS = {
   ar:      { name: 'Assault Rifle',   dmg: 30,  rate: 0.13, mag: 30, reload: 2.0, spread: 0.022, ads: 0.006, ammo: 'medium',  range: 180, pellets: 1, auto: true,  shake: 0.06, recoil: 0.006, sound: 'ar' },
-  shotgun: { name: 'Shotgun',         dmg: 11,  rate: 0.9,  mag: 5,  reload: 3.2, spread: 0.085, ads: 0.065, ammo: 'shells',  range: 45,  pellets: 9, auto: false, shake: 0.28, recoil: 0.04,  sound: 'shotgun' },
+  shotgun: { name: 'Shotgun',         dmg: 7,   rate: 0.9,  mag: 5,  reload: 3.2, spread: 0.085, ads: 0.065, ammo: 'shells',  range: 45,  pellets: 9, auto: false, shake: 0.28, recoil: 0.04,  sound: 'shotgun' },
   smg:     { name: 'SMG',             dmg: 17,  rate: 0.075,mag: 30, reload: 1.8, spread: 0.04,  ads: 0.025, ammo: 'light',   range: 110, pellets: 1, auto: true,  shake: 0.04, recoil: 0.004, sound: 'smg' },
-  sniper:  { name: 'Sniper Rifle',    dmg: 105, rate: 1.5,  mag: 1,  reload: 2.4, spread: 0.07,  ads: 0.0,   ammo: 'heavy',   range: 420, pellets: 1, auto: false, shake: 0.4,  recoil: 0.06,  sound: 'sniper', scope: true },
-  rocket:  { name: 'Rocket Launcher', dmg: 110, rate: 1.6,  mag: 1,  reload: 3.0, spread: 0.012, ads: 0.004, ammo: 'rockets', range: 250, pellets: 1, auto: false, shake: 0.5,  recoil: 0.05,  sound: 'rocket', projectile: true, splash: 6.5 },
+  sniper:  { name: 'Sniper Rifle',    dmg: 72,  rate: 1.5,  mag: 1,  reload: 2.4, spread: 0.07,  ads: 0.0,   ammo: 'heavy',   range: 420, pellets: 1, auto: false, shake: 0.4,  recoil: 0.06,  sound: 'sniper', scope: true },
+  rocket:  { name: 'Rocket Launcher', dmg: 80,  rate: 1.6,  mag: 1,  reload: 3.0, spread: 0.012, ads: 0.004, ammo: 'rockets', range: 250, pellets: 1, auto: false, shake: 0.5,  recoil: 0.05,  sound: 'rocket', projectile: true, splash: 6.5 },
 };
 const WEAPON_KEYS = Object.keys(WEAPONS);
 const RARITY = [
@@ -1543,7 +1543,7 @@ class Entity {
     this.reset();
   }
   reset() {
-    this.alive = true; this.health = 100; this.shield = 0; this.kills = 0; this.wood = 20;
+    this.alive = true; this.health = 100; this.shield = 50; // everyone drops in with half shield this.kills = 0; this.wood = 20;
     this.slots = [null, null, null, null, null]; this.active = 0; this.pickaxe = true;
     this.ammo = { light: 0, medium: 0, heavy: 0, shells: 0, rockets: 0 };
     this.state = 'bus'; this.grounded = false; this.crouch = false;
@@ -1805,6 +1805,7 @@ function hasLOS(a, b) {
 /* Damage, eliminations, kill feed */
 function damage(target, amount, attacker, weaponName, headshot, point) {
   if (!target.alive || amount <= 0) return;
+  if (target === player && attacker && attacker.isBot) amount *= 0.7; // bots hit the player a bit softer
   amount = Math.round(amount);
   let rest = amount, shieldHit = false;
   if (target.shield > 0) { const a = Math.min(target.shield, rest); target.shield -= a; rest -= a; shieldHit = true; }
@@ -3059,7 +3060,7 @@ function katanaSlash(p) {
     chestPoint(e, _v2);
     const dx = _v2.x - _org.x, dz = _v2.z - _org.z, d = Math.hypot(dx, dz) || 1;
     if (d > 3.5 || Math.abs(_v2.y - _org.y) > 2.2 || (dx * fx + dz * fz) / d < 0.4) continue;
-    damage(e, 55, p, 'Katana', false, _v2); emit(sparks, _v2.x, _v2.y, _v2.z, 14, 0xff6b6b, 5, 0.35); hit = true;
+    damage(e, 40, p, 'Katana', false, _v2); emit(sparks, _v2.x, _v2.y, _v2.z, 14, 0xff6b6b, 5, 0.35); hit = true;
   }
   _base.set(fx, 0, fz);
   const h = castRay(_org, _base, 3.2, p, true);
@@ -3111,7 +3112,7 @@ function updateGrenades(dt) {
     if (g.pos.y < th) { g.pos.y = th; g.vel.y = Math.abs(g.vel.y) * 0.4; g.vel.x *= 0.7; g.vel.z *= 0.7; }
     g.mesh.position.copy(g.pos); g.mesh.rotation.x += dt * 8; g.mesh.rotation.z += dt * 5;
     if (Math.random() < dt * 20) emit(sparks, g.pos.x, g.pos.y + 0.1, g.pos.z, 1, 0xff5544, 0.4, 0.25, -0.1);
-    if (g.fuse <= 0) { explode(g.pos.clone(), g.owner, 95, 6.5, 'Grenade'); scene.remove(g.mesh); grenades.splice(i, 1); }
+    if (g.fuse <= 0) { explode(g.pos.clone(), g.owner, 70, 6.5, 'Grenade'); scene.remove(g.mesh); grenades.splice(i, 1); }
   }
 }
 

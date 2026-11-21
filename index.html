@@ -1438,15 +1438,16 @@ function mergeByMaterial(root) {
   root.traverse(o => {
     if (!o.isMesh || Array.isArray(o.material)) return;
     let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-    g.applyMatrix4(rel.multiplyMatrices(inv, o.matrixWorld));
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    g.applyMatrix4(rel.multiplyMatrices(inv, o.matrixWorld)); // also rotates normals and tangents
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'uv2', 'tangent', 'color'].includes(k)) g.deleteAttribute(k);
     if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     if (!g.attributes.normal) g.computeVertexNormals();
-    if (!byMat.has(o.material)) byMat.set(o.material, []);
-    byMat.get(o.material).push(g);
+    const key = o.material.uuid + '|' + Object.keys(g.attributes).sort().join(','); // only merge parts with identical data
+    if (!byMat.has(key)) byMat.set(key, { m: o.material, list: [] });
+    byMat.get(key).list.push(g);
   });
   const out = new THREE.Group();
-  for (const [m, list] of byMat) { const mesh = new THREE.Mesh(THREE.BufferGeometryUtils.mergeBufferGeometries(list), m); mesh.castShadow = true; mesh.receiveShadow = true; out.add(mesh); }
+  for (const { m, list } of byMat.values()) { const mesh = new THREE.Mesh(THREE.BufferGeometryUtils.mergeBufferGeometries(list), m); mesh.castShadow = true; mesh.receiveShadow = true; out.add(mesh); }
   const mz = root.getObjectByName('Muzzle');
   if (mz) { const e = new THREE.Object3D(); e.name = 'Muzzle'; e.position.setFromMatrixPosition(rel.multiplyMatrices(inv, mz.matrixWorld)); out.add(e); }
   return out;
@@ -2660,7 +2661,6 @@ function updateViewmodel(dt, scoped) {
   if (!show) return;
   const key = it ? (it.kind === 'weapon' ? it.type + it.rarity : 'heal' + it.type) : 'pickaxe';
   if (key !== vm.key) { vmSetItem(it); vm.key = key; }
-  vmHold.visible = vm.ads < 0.85; // fully aimed in: look through the holographic sight instead of the gun
   // quick katana slash sweeps across the screen, then the gun comes back
   const slashing = p.katanaT > 0;
   if (vm.held) vm.held.visible = !slashing;
@@ -2682,7 +2682,7 @@ function updateViewmodel(dt, scoped) {
   vm.equipT = Math.max(0, vm.equipT - dt);
   const onFoot = p.grounded && p.slideT <= 0, amp = onFoot ? clamp(hs / 7, 0, 1) * (1 - vm.ads * 0.85) : 0;
   const bx = Math.sin(p.bobT || 0) * 0.014 * amp, by = -Math.abs(Math.cos(p.bobT || 0)) * 0.012 * amp;
-  VM_ADS.y = -((vm.held && vm.held.userData.sightY) || 0.128);
+  VM_ADS.y = -((vm.held && vm.held.userData.sightY) || 0.128) - 0.1; // gun stays visible just below the sight frame
   vmRoot.position.lerpVectors(VM_HIP, VM_ADS, smooth(vm.ads));
   vmRoot.position.x += vm.swayX * (1 - vm.ads * 0.7) + bx;
   vmRoot.position.y += vm.swayY * (1 - vm.ads * 0.7) + by - vm.reload * 0.1 - vm.equipT * 0.5 - vm.sprint * 0.05 + (p.grounded ? 0 : 0.02) - (p.camDip || 0) * 0.15;

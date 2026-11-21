@@ -113,7 +113,11 @@
   .settings .v { min-width: 44px; text-align: right; color: #a5d8ff; }
   .settings input[type=checkbox] { pointer-events: auto; width: 20px; height: 20px; }
   .btn.small { font-size: 20px; padding: 8px 28px; margin-top: 6px; background: linear-gradient(#dee2e6, #adb5bd); color: #212529; box-shadow: 0 5px 0 #495057; }
-  #redDot { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: #ff2d2d; box-shadow: 0 0 6px 2px rgba(255,40,40,.7); opacity: 0; transition: opacity .08s; }
+  #holo { position: absolute; left: 50%; top: 50%; width: 30vh; height: 21vh; transform: translate(-50%, -50%); opacity: 0; transition: opacity .08s;
+          border: 7px solid rgba(24,26,30,.92); border-radius: 14px; box-shadow: 0 0 0 2px rgba(255,255,255,.08), inset 0 0 30px rgba(120,190,255,.12);
+          background: linear-gradient(160deg, rgba(150,210,255,.10), rgba(255,255,255,0) 45%, rgba(150,210,255,.06)); }
+  #holo::after { content: ''; position: absolute; left: 50%; bottom: -7vh; width: 12vh; height: 6vh; margin-left: -6vh; background: rgba(24,26,30,.95); border-radius: 0 0 8px 8px; }
+  #redDot { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: #ff2d2d; box-shadow: 0 0 6px 2px rgba(255,40,40,.7); opacity: 0; transition: opacity .08s; }
   #fpsBox { position: absolute; left: 20px; bottom: 120px; font-size: 14px; background: rgba(0,0,0,.4); padding: 3px 8px; border-radius: 6px; }
 </style>
 </head>
@@ -129,6 +133,7 @@
     <div class="ch t"></div><div class="ch b"></div><div class="ch l"></div><div class="ch r"></div>
     <div id="dot"></div><div id="hitmarker"></div>
   </div>
+  <div id="holo"></div>
   <div id="redDot"></div>
   <div id="fpsBox" class="hidden">-- FPS</div>
   <div id="killfeed"></div>
@@ -175,7 +180,7 @@
       <span class="k">Right click</span><span>Aim down sights (sniper scope)</span>
       <span class="k">1 – 5</span><span>Inventory slots (build pieces in build mode)</span>
       <span class="k">F</span><span>Quick katana slash (also chops trees for wood)</span>
-      <span class="k">X / Mid mouse</span><span>Grappling hook: tap to swing, hold to reel in, Space to launch</span>
+      <span class="k">X / Mid mouse</span><span>Grappling hook: pulls you to where you aim · X again lets go · Space launches</span>
       <span class="k">G</span><span>Grenade (hold to throw further)</span>
       <span class="k">E</span><span>Open chests, pick up loot</span>
       <span class="k">R</span><span>Reload</span>
@@ -2614,7 +2619,8 @@ const view = { fp: true };
 const vmScene = new THREE.Scene();
 const vmCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 10);
 vmScene.environment = scene.environment;
-vmScene.add(new THREE.HemisphereLight(lin(0xcfe2ff), lin(0x59633f), 0.8));
+vmScene.add(new THREE.HemisphereLight(lin(0xcfe2ff), lin(0x59633f), 1.1));
+const vmFill = new THREE.DirectionalLight(lin(0xffffff), 1.3); vmFill.position.set(0.3, 0.6, 1); vmScene.add(vmFill); // light from behind the eye
 const vmSun = new THREE.DirectionalLight(lin(0xfff0d8), 2.6); vmScene.add(vmSun, vmSun.target);
 const vmRoot = new THREE.Group(); vmScene.add(vmRoot); vmRoot.visible = false;
 const vmHold = new THREE.Group(); vmHold.rotation.y = Math.PI; vmRoot.add(vmHold); // barrel (+Z) points away from the eye
@@ -2626,7 +2632,7 @@ function vmArm(x, y, z, ry) { // gloved hand with a sleeve running back toward t
   const sleeve = new THREE.Mesh(BOX, VM_SLEEVE); sleeve.scale.set(0.1, 0.1, 0.5); sleeve.position.set(0, -0.01, -0.3); g.add(sleeve);
   return g;
 }
-const VM_HIP = new THREE.Vector3(0.19, -0.2, -0.36), VM_ADS = new THREE.Vector3(0, -0.128, -0.3);
+const VM_HIP = new THREE.Vector3(0.19, -0.2, -0.36), VM_ADS = new THREE.Vector3(0, -0.128, -0.56);
 function vmSetItem(it) {
   if (vm.held) vmHold.remove(vm.held);
   const g = new THREE.Group();
@@ -2654,6 +2660,7 @@ function updateViewmodel(dt, scoped) {
   if (!show) return;
   const key = it ? (it.kind === 'weapon' ? it.type + it.rarity : 'heal' + it.type) : 'pickaxe';
   if (key !== vm.key) { vmSetItem(it); vm.key = key; }
+  vmHold.visible = vm.ads < 0.85; // fully aimed in: look through the holographic sight instead of the gun
   // quick katana slash sweeps across the screen, then the gun comes back
   const slashing = p.katanaT > 0;
   if (vm.held) vm.held.visible = !slashing;
@@ -2787,7 +2794,8 @@ function updateHUD(dt, scoped) {
   const g = 4 + spreadPx;
   const chs = ui.cross.children;
   chs[0].style.top = (-g - 9) + 'px'; chs[1].style.top = g + 'px'; chs[2].style.left = (-g - 9) + 'px'; chs[3].style.left = g + 'px';
-  const adsFp = view.fp && vmRoot.visible && vm.ads > 0.6;
+  const adsFp = view.fp && vmRoot.visible && vm.ads > 0.85;
+  $('holo').style.opacity = adsFp ? 1 : 0;
   ui.cross.style.display = scoped || p.state === 'bus' || adsFp ? 'none' : 'block';
   $('redDot').style.opacity = adsFp ? 1 : 0;
   hitT -= dt; ui.hit.style.opacity = hitT > 0 ? 1 : 0;
@@ -2886,19 +2894,23 @@ document.addEventListener('keydown', e => {
 /* ---- Settings (saved in this browser) and graphics quality presets ---- */
 const settings = (() => {
   const isWeakGPU = (() => { try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); const r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; return /intel|mali|adreno|powervr|apple gpu|swiftshader|llvmpipe/i.test(r); } catch (e) { return true; } })();
-  const d = { quality: isWeakGPU ? 'low' : 'medium', res: isWeakGPU ? 75 : 100, fov: 80, sens: 100, vol: 70, fp: true, fps: false };
+  const d = { quality: isWeakGPU ? 'low' : 'medium', res: isWeakGPU ? 70 : 100, fov: 80, sens: 100, vol: 70, fp: true, fps: false };
   try { Object.assign(d, JSON.parse(localStorage.getItem('stormdrop.settings') || '{}')); } catch (e) {}
   return d;
 })();
 const QUALITY = {
-  low:    { pr: 1.0, shadow: 1024, shadowRange: 38, shadows: true, grass: 0,   fogFar: 260, cull: 75 },
+  low:    { pr: 1.0, shadow: 1024, shadowRange: 38, shadows: false, grass: 0,  fogFar: 240, cull: 65 },
   medium: { pr: 1.0, shadow: 2048, shadowRange: 50, shadows: true, grass: 0.5, fogFar: 340, cull: 120 },
   high:   { pr: 1.5, shadow: 2048, shadowRange: 55, shadows: true, grass: 1,   fogFar: 430, cull: 220 },
 };
 const cullObjs = []; // far-away map models hidden beyond the quality's draw distance
 function applySettings() {
   const Q = QUALITY[settings.quality] || QUALITY.medium;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.pr) * settings.res / 100);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.pr) * settings.res / 100 * dynScale);
+  if (renderer.shadowMap.enabled !== Q.shadows) { // switching shadows needs the shaders rebuilt
+    renderer.shadowMap.enabled = Q.shadows;
+    for (const sc of [scene, vmScene]) sc.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
+  }
   renderer.setSize(innerWidth, innerHeight);
   if (sun.shadow.mapSize.x !== Q.shadow) { sun.shadow.mapSize.set(Q.shadow, Q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   Object.assign(sun.shadow.camera, { left: -Q.shadowRange, right: Q.shadowRange, top: Q.shadowRange, bottom: -Q.shadowRange }); sun.shadow.camera.updateProjectionMatrix();
@@ -2910,7 +2922,7 @@ function applySettings() {
   $('fpsBox').classList.toggle('hidden', !settings.fps);
   try { localStorage.setItem('stormdrop.settings', JSON.stringify(settings)); } catch (e) {}
 }
-let FOG_FAR_NOW = 340;
+let FOG_FAR_NOW = 340, dynScale = 1, _dynN = 0, _dynT = 0;
 function syncSettingsUI() {
   $('optQuality').value = settings.quality; $('optRes').value = settings.res; $('optFov').value = settings.fov;
   $('optSens').value = settings.sens; $('optVol').value = settings.vol; $('optFp').checked = settings.fp; $('optFps').checked = settings.fps;
@@ -2922,7 +2934,17 @@ $('optFp').addEventListener('change', e => { settings.fp = e.target.checked; app
 $('optFps').addEventListener('change', e => { settings.fps = e.target.checked; applySettings(); });
 let _cullT = 0, _fpsN = 0, _fpsT = 0;
 function updateCullingAndFps(dt) {
-  _fpsN++; _fpsT += dt; if (_fpsT >= 0.5) { if (settings.fps) $('fpsBox').textContent = Math.round(_fpsN / _fpsT) + ' FPS'; _fpsN = 0; _fpsT = 0; }
+  if (game.state === 'playing' && !game.paused) {
+    _dynN++; _dynT += dt;
+    if (_dynT >= 2) {
+      const fps = _dynN / _dynT, old = dynScale;
+      if (fps < 40 && dynScale > 0.5) dynScale = Math.max(0.5, dynScale - 0.1);
+      else if (fps > 57 && dynScale < 1) dynScale = Math.min(1, dynScale + 0.05);
+      if (dynScale !== old) applySettings();
+      _dynN = 0; _dynT = 0;
+    }
+  }
+  _fpsN++; _fpsT += dt; if (_fpsT >= 0.5) { if (settings.fps) $('fpsBox').textContent = Math.round(_fpsN / _fpsT) + ' FPS' + (dynScale < 1 ? ' · res ' + Math.round(settings.res * dynScale) + '%' : ''); _fpsN = 0; _fpsT = 0; }
   _cullT -= dt; if (_cullT > 0) return; _cullT = 0.4;
   const Q = QUALITY[settings.quality] || QUALITY.medium, cx = camera.position.x, cz = camera.position.z, r2 = Q.cull * Q.cull;
   for (const t of trees) { const dx = t.x - cx, dz = t.z - cz; t.group.visible = t.alive && dx * dx + dz * dz < r2; }
@@ -3006,11 +3028,21 @@ const hookMesh = new THREE.Mesh(SPH, mat(0x9aa0a6, { metalness: 0.9, roughness: 
 function fireGrapple(p) {
   if (p.grapple || p.state !== 'ground' || !p.alive || p.grappleCd > 0 || build.on) return;
   camera.getWorldDirection(_dir); _org.copy(camera.position);
-  const h = castRay(_org, _dir, GRAPPLE_RANGE + camDistNow, p, true, camDistNow + 0.3);
-  if (!h) { AudioSys.play('empty'); showBanner('Out of grapple range', 0.6); return; }
+  // aim assist: if the shot just misses (e.g. over a roof edge), try a little lower to catch the ledge
+  let h = null;
+  for (const drop of [0, 0.03, 0.06, 0.1, 0.14]) {
+    _v3.copy(_dir); _v3.y -= drop; _v3.normalize();
+    h = castRay(_org, _v3, GRAPPLE_RANGE + camDistNow, p, true, camDistNow + 0.3);
+    if (h) break;
+  }
+  if (!h) { AudioSys.play('empty'); showBanner('Nothing to hook — aim at a wall, roof, rock or tree', 0.9); return; }
+  // which way does the hooked surface face? (underside = hang and swing instead of climbing)
+  let under = false;
+  if (h.type === 'solid') { const so = h.solid, q = h.point, ds = [q.x - so.x0, so.x1 - q.x, q.y - so.y0, so.y1 - q.y, q.z - so.z0, so.z1 - q.z]; under = ds.indexOf(Math.min(...ds)) === 2; }
   chestPoint(p, _v1);
-  p.grapple = { point: h.point.clone(), len: Math.max(2, _v1.distanceTo(h.point)), heldT: 0, t: 0 };
+  p.grapple = { point: h.point.clone(), len: Math.max(2, _v1.distanceTo(h.point)), heldT: 0, t: 0, under };
   p.slideT = 0; p.mantle = null;
+  if (p.grounded) { p.vel.y = Math.max(p.vel.y, 6); p.grounded = false; }
   AudioSys.play('grapple');
 }
 function releaseGrapple(p) { p.grapple = null; p.grappleCd = 0.25; }
@@ -3021,20 +3053,30 @@ function launchFromGrapple(p) {
   p.airJumps = 1; p.dashReady = true; p.grounded = false;
   releaseGrapple(p); AudioSys.play('jump');
 }
-/* Rope physics: a max-length constraint (swing); holding the key reels you in */
+/* Rope physics: the hook pulls you toward the anchor (reeling the rope in), and the rope
+   length is a hard limit so you swing around corners. Let go when you arrive. */
 function updateGrapple(p, dt) {
   const g = p.grapple; if (!g) return;
   g.t += dt;
-  const holding = input.keys.KeyX || input.grappleMouse;
-  if (holding) g.heldT += dt; else g.heldT = -1; // once released, a later press means "let go"
   chestPoint(p, _v1); _v2.subVectors(_v1, g.point); const d = _v2.length() || 1; _v2.multiplyScalar(1 / d);
-  if (g.heldT > 0.22) { g.len = Math.max(1.5, g.len - 24 * dt); p.vel.addScaledVector(_v2, -38 * dt); p.grounded = false; }
+  g.len = Math.max(1.5, Math.min(g.len, d) - 22 * dt);
+  p.vel.addScaledVector(_v2, -46 * dt);                               // pull
+  p.vel.y += GRAVITY * dt * 0.35;                                       // partly counter gravity while reeling
+  const sp = p.vel.length(); if (sp > 30) p.vel.multiplyScalar(30 / sp);
   if (d > g.len) {
     p.pos.addScaledVector(_v2, -(d - g.len));
     const out = p.vel.dot(_v2); if (out > 0) p.vel.addScaledVector(_v2, -out);
     p.pos.y = Math.max(p.pos.y, terrainHeight(p.pos.x, p.pos.z));
   }
-  if (d < 1.7 || g.t > 10) releaseGrapple(p);
+  p.grounded = false;
+  if (g.under) { if (g.t > 12) releaseGrapple(p); return; } // hanging from an underside: swing until X or Space
+  if (d < 2.4) { // arrived: climb over the ledge if there is one, otherwise get flung up and over the anchor
+    _v3.set(g.point.x - p.pos.x, 0, g.point.z - p.pos.z); const hd = _v3.length();
+    if (hd > 0.05) p.yaw = Math.atan2(_v3.x, _v3.z);
+    releaseGrapple(p); p.state = 'ground';
+    if (!tryMantle(p, false)) { if (hd > 0.05) { _v3.multiplyScalar(1 / hd); p.vel.x = _v3.x * 6; p.vel.z = _v3.z * 6; } p.vel.y = Math.max(p.vel.y, 9); }
+  }
+  else if (g.t > 6) releaseGrapple(p);
 }
 function updateRope() {
   const p = player, g = p.grapple;
@@ -3162,7 +3204,10 @@ function updatePlayer(dt) {
   } else {
     p.crouch = crouchKey;
     const speed = (p.crouch ? MOVE.crouch : input.aim ? MOVE.ads : input.sprint ? MOVE.sprint : MOVE.walk) * (p.healing ? 0.5 : 1);
-    if (!p.grounded && hs > speed) {
+    if (p.grapple) {
+      const kk = 1 - Math.exp(-2 * dt);
+      if (wl > 0) { p.vel.x += wx * 9 * kk; p.vel.z += wz * 9 * kk; }
+    } else if (!p.grounded && hs > speed) {
       // keep air momentum (dashes, launches, swings) and only steer it a little
       const kk = 1 - Math.exp(-1.4 * dt);
       if (wl > 0) { p.vel.x += (wx * hs - p.vel.x) * kk; p.vel.z += (wz * hs - p.vel.z) * kk; }
